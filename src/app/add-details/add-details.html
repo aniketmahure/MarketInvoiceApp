@@ -1,0 +1,40 @@
+<div class="details-container">
+  <div class="customer-banner">
+    <h3>Customer: {{ account.name }} {{ account.surname }}</h3>
+    <p>Account ID: <strong>{{ account.accountId }}</strong></p>
+  </div>
+
+  <div class="form-grid">
+    <div class="form-group">
+      <label>Current Date:</label>
+      <input type="text" [value]="currentDate" disabled />
+    </div>
+
+    <div class="form-group">
+      <label>Current Rate (₹):</label>
+      <input type="number" [(ngModel)]="currentRate" placeholder="Enter rate" />
+    </div>
+
+    <div class="form-group">
+      <label>No of Bags:</label>
+      <input type="number" [(ngModel)]="noOfBags" placeholder="Enter bags" />
+    </div>
+
+    <div class="form-group">
+      <label>Total Weight:</label>
+      <input type="number" [(ngModel)]="totalWeight" placeholder="Enter total weight" />
+    </div>
+
+    <div class="form-group full-width">
+      <label>Total Amount (Auto-Calculated):</label>
+      <div class="calculated-amount">₹{{ totalAmount | number:'1.2-2' }}</div>
+      <small>Formula: Rate × (Total Weight − No of Bags)</small>
+    </div>
+  </div>
+
+  <div class="button-group">
+    <button class="btn-add" (click)="onAdd()">Add Details</button>
+    <button class="btn-clear" (click)="onClear()">Clear</button>
+    <button class="btn-cancel" (click)="onCancel()">Cancel</button>
+  </div>
+</div>

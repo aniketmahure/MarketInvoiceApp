@@ -1,0 +1,30 @@
+Accounts Page(Home Page):
+1) on the top of the page search field with button
+2) should search within the customer name and surname or account id
+3) search should be based on typing
+4) there should be a create account button
+5) search results should be shown based on the account details. there will be a folder with the account id and name.
+
+create account(Create Account Page):
+1)create account with full name and surname.
+2)allocate account id for each customer
+3) mobile no optional
+4)this account details should be created in CustomerName_accountID.csv.
+
+Search box:
+1)search result should display list of the customer account names and account ids.
+2)after clicking on a customer's account invoices should be shown.
+3)6 month invoices should be displayed with details, dates(DD/MM/YYYY), total weight, no of bags and total amount in rupees
+4)there should be view all invoices button to view all of the invoices on the same line of account name and id.
+5)there should be Add Details button to create new details i.e new rows for the same customer on the same line of account name and id.
+6)there should be total bags in bottom and sum of total amount calculated based on the total invoices.
+7)there should be final Print Invoice option to print all of the details in single invoice and total bags and amount in last line.
+
+Add Details(Add Details Page):
+1) Top of the page should have details of the customer name and account id.
+2) display current date, current rate,no of bags, total weight and the total amount(current rate x (total weight - no of bags)).
+3)After Clicking add. Insert these details into the a csv files. keep clear button next to it to clear all of the details entered.
+4)keep adding details in next row for every add.
+5) Auto Populate the Total Amount based on the calculation i provided.
+
+

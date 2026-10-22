@@ -1,0 +1,78 @@
+<div class="container" *ngIf="currentView === 'home'">
+  <header class="header">
+    <div class="search-bar">
+      <input 
+        type="text" 
+        [(ngModel)]="searchQuery" 
+        (input)="onSearch()" 
+        placeholder="Search by customer name, surname or account ID..." 
+      />
+      <button (click)="onSearch()">Search</button>
+    </div>
+    <button class="btn-create" (click)="goToCreate()">Create Account</button>
+  </header>
+
+  <div class="accounts-list">
+    <h3>Customer Accounts</h3>
+    <div 
+      class="account-card" 
+      *ngFor="let acc of accounts" 
+      (click)="selectAccount(acc)">
+      <div class="folder-icon">📁</div>
+      <div class="account-info">
+        <h4>{{ acc.name }} {{ acc.surname }}</h4>
+        <p>ID: <strong>{{ acc.accountId }}</strong> | File: {{ acc.fileName }}</p>
+      </div>
+    </div>
+    <p *ngIf="accounts.length === 0" class="no-data">No accounts found.</p>
+  </div>
+</div>
+
+<!-- Routed sub-views handled conditionally or via Angular Router -->
+<app-create-account *ngIf="currentView === 'create'" (back)="backToHome()"></app-create-account>
+
+<div class="container" *ngIf="currentView === 'details'">
+  <button class="btn-back" (click)="backToHome()">← Back to Accounts</button>
+  <div class="invoice-header-row">
+    <h2>Farmer : {{ selectedAccount.name }} {{ selectedAccount.surname }} </h2>
+    <div>
+      <button class="btn-secondary" (click)="toggleViewAll()">
+        {{ viewAll ? 'Show Last 6 Months' : 'View All Invoices' }}
+      </button>
+      <button class="btn-primary" (click)="goToAddDetails()">Add Details</button>
+      <button class="btn-print" (click)="printInvoice()">Print Invoice</button>
+    </div>
+  </div>
+
+  <table class="invoice-table">
+    <thead>
+      <tr>
+        <th>Date (DD/MM/YYYY)</th>
+        <th>No of Bags</th>
+        <th>Quantity</th>
+        <th>Rate</th>
+        <th>Total Amount (₹)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let inv of invoices">
+        <td>{{ inv.date }}</td>
+        <td>{{ inv.bags }}</td>
+        <td>{{ inv.weight }}</td>
+        <td>₹{{ inv.rate | number:'1.2-2' }}</td>
+        <td>₹{{ inv.amount | number:'1.2-2' }}</td>
+      </tr>
+    </tbody>
+    <tfoot>
+      <tr class="total-row">
+        <td><strong>Total</strong></td>
+        <td><strong>{{ totalBags }} Bags</strong></td>
+        <td>-</td>
+        <td>-</td>
+        <td><strong>₹{{ totalAmount | number:'1.2-2' }}</strong></td>
+      </tr>
+    </tfoot>
+  </table>
+</div>
+
+<app-add-details *ngIf="currentView === 'add'" [account]="selectedAccount" (back)="selectAccount(selectedAccount)"></app-add-details>

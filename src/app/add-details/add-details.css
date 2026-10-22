@@ -1,0 +1,13 @@
+.details-container { max-width: 600px; margin: 30px auto; padding: 25px; border: 1px solid #ddd; border-radius: 8px; background: #fff; font-family: Arial, sans-serif; }
+.customer-banner { background: #e9ecef; padding: 12px; border-radius: 6px; margin-bottom: 20px; }
+.customer-banner h3 { margin: 0 0 5px 0; }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+.form-group { margin-bottom: 15px; }
+.form-group.full-width { grid-column: span 2; }
+.form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+.form-group input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+.calculated-amount { font-size: 20px; font-weight: bold; color: #28a745; padding: 8px 0; }
+.button-group { display: flex; gap: 10px; margin-top: 20px; }
+.btn-add { background: #28a745; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+.btn-clear { background: #ffc107; color: black; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+.btn-cancel { background: #6c757d; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
