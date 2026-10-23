@@ -1,3 +1,5 @@
+<app-navbar></app-navbar>
+<p class="storage-error" role="alert" *ngIf="storageError">{{ storageError }}</p>
 <div class="container" *ngIf="currentView === 'home'">
   <header class="header">
     <div class="search-bar">
@@ -33,8 +35,33 @@
 
 <div class="container" *ngIf="currentView === 'details'">
   <button class="btn-back" (click)="backToHome()">← Back to Accounts</button>
+  <h1 class="purchase-title">PURCHASE STATEMENT</h1>
+  <div class="statement-bar">
+    <h3 class="farmer-name">Farmer : {{ selectedAccount.name }} {{ selectedAccount.surname }}</h3>
+    <h3 class="farmer-details" >{{ selectedAccount.address }}, Mob: {{ selectedAccount.mobile }}</h3>
+    <h3 class="farmer-details" ></h3>
+    <br>
+  </div>
+  
   <div class="invoice-header-row">
-    <h2>Farmer : {{ selectedAccount.name }} {{ selectedAccount.surname }} </h2>
+    <div class="date-range-filter">
+      <div class="date-filter-field">
+        <label for="from-date">From</label>
+        <input id="from-date" type="date" [(ngModel)]="fromDate" (ngModelChange)="applyDateRange()" />
+      </div>
+
+      <div class="date-filter-field">
+        <label for="to-date">To</label>
+        <input id="to-date" type="date" [(ngModel)]="toDate" (ngModelChange)="applyDateRange()" />
+      </div>
+
+      <button class="btn-secondary" type="button" (click)="clearDateRange()">Clear dates</button>
+      <p class="date-range-error" *ngIf="fromDate && toDate && fromDate > toDate">
+      From date must be on or before To date.
+      </p>
+      
+    </div>
+
     <div>
       <button class="btn-secondary" (click)="toggleViewAll()">
         {{ viewAll ? 'Show Last 6 Months' : 'View All Invoices' }}
@@ -44,10 +71,12 @@
     </div>
   </div>
 
+  
+
   <table class="invoice-table">
     <thead>
       <tr>
-        <th>Date (DD/MM/YYYY)</th>
+        <th>Date</th>
         <th>No of Bags</th>
         <th>Quantity</th>
         <th>Rate</th>
@@ -63,12 +92,18 @@
         <td>₹{{ inv.amount | number:'1.2-2' }}</td>
       </tr>
     </tbody>
+    <tbody *ngIf="invoices.length === 0">
+      <tr>
+        <td colspan="5" class="no-data">No invoices found for this date range.</td>
+      </tr>
+    </tbody>
+    <br>
     <tfoot>
       <tr class="total-row">
         <td><strong>Total</strong></td>
         <td><strong>{{ totalBags }} Bags</strong></td>
-        <td>-</td>
-        <td>-</td>
+        <td></td>
+        <td></td>
         <td><strong>₹{{ totalAmount | number:'1.2-2' }}</strong></td>
       </tr>
     </tfoot>

@@ -4,11 +4,12 @@ import { FormsModule } from '@angular/forms';
 import { Invoice } from '../../service/invoice';
 import { AddDetails } from '../add-details/add-details';
 import { CreateAccount } from '../create-account/create-account';
+import { Navbar } from '../navbar/navbar';
 
 @Component({
   selector: 'app-accounts',
   standalone: true,
-  imports: [CommonModule, FormsModule, CreateAccount, AddDetails],
+  imports: [CommonModule, FormsModule, CreateAccount, AddDetails, Navbar],
   templateUrl: './accounts.html',
   styleUrls: ['./accounts.css']
 })
@@ -17,10 +18,14 @@ export class Accounts implements OnInit {
   accounts: any[] = [];
   selectedAccount: any = null;
   invoices: any[] = [];
+  allInvoices: any[] = [];
+  fromDate = '';
+  toDate = '';
   viewAll = false;
   totalBags = 0;
   totalAmount = 0;
   rate = 0;
+  storageError = '';
   
   // Navigation state: 'home' | 'create' | 'details' | 'add'
   currentView = 'home'; 
@@ -32,7 +37,13 @@ export class Accounts implements OnInit {
   }
 
   async loadAccounts() {
-    this.accounts = await this.invoiceService.getAccounts(this.searchQuery);
+    try {
+      this.accounts = await this.invoiceService.getAccounts(this.searchQuery);
+      this.storageError = '';
+    } catch (error) {
+      this.accounts = [];
+      this.storageError = this.errorMessage(error);
+    }
   }
 
   async onSearch() {
@@ -44,20 +55,75 @@ export class Accounts implements OnInit {
   }
 
   async selectAccount(account: any) {
+    if (this.selectedAccount?.accountId !== account.accountId) {
+      this.fromDate = '';
+      this.toDate = '';
+    }
     this.selectedAccount = account;
     this.viewAll = false;
-    await this.loadInvoicesData();
-    this.currentView = 'details';
+    try {
+      await this.loadInvoicesData();
+      this.storageError = '';
+      this.currentView = 'details';
+    } catch (error) {
+      this.storageError = this.errorMessage(error);
+    }
   }
 
   async loadInvoicesData() {
-    this.invoices = await this.invoiceService.getInvoices(this.selectedAccount.accountId, this.viewAll);
+    this.allInvoices = await this.invoiceService.getInvoices(this.selectedAccount.accountId, this.viewAll);
+    this.applyDateRange();
+  }
+
+  applyDateRange() {
+    const startDate = this.fromDate ? this.parseDate(this.fromDate) : null;
+    const endDate = this.toDate ? this.parseDate(this.toDate) : null;
+
+    if ((this.fromDate && startDate === null) || (this.toDate && endDate === null) ||
+        (startDate !== null && endDate !== null && startDate > endDate)) {
+      this.invoices = [];
+    } else {
+      this.invoices = this.allInvoices.filter((invoice) => {
+        const invoiceDate = this.parseDate(invoice.date);
+        return invoiceDate !== null &&
+          (startDate === null || invoiceDate >= startDate) &&
+          (endDate === null || invoiceDate <= endDate);
+      });
+    }
+
     this.calculateTotals();
+  }
+
+  clearDateRange() {
+    this.fromDate = '';
+    this.toDate = '';
+    this.applyDateRange();
+  }
+
+  private parseDate(value: string): number | null {
+    const parts = value.includes('/')
+      ? value.split('/').reverse()
+      : value.split('-');
+    if (parts.length !== 3 || parts.some((part) => !/^\d+$/.test(part))) return null;
+
+    const [year, month, day] = parts.map(Number);
+    const timestamp = Date.UTC(year, month - 1, day);
+    const date = new Date(timestamp);
+    return date.getUTCFullYear() === year &&
+      date.getUTCMonth() === month - 1 &&
+      date.getUTCDate() === day
+      ? timestamp
+      : null;
   }
 
   async toggleViewAll() {
     this.viewAll = !this.viewAll;
-    await this.loadInvoicesData();
+    try {
+      await this.loadInvoicesData();
+      this.storageError = '';
+    } catch (error) {
+      this.storageError = this.errorMessage(error);
+    }
   }
 
   calculateTotals() {
@@ -73,8 +139,13 @@ export class Accounts implements OnInit {
     window.print();
   }
 
-  backToHome() {
+  async backToHome() {
     this.currentView = 'home';
     this.selectedAccount = null;
+    await this.loadAccounts();
+  }
+
+  private errorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
   }
 }

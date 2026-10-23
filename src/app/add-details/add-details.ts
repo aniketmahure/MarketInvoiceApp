@@ -19,6 +19,7 @@ export class AddDetails implements OnInit {
   currentRate: number = 0;
   noOfBags: number = 0;
   totalWeight: number = 0;
+  errorMessage = '';
 
   constructor(private invoiceService: Invoice) {}
 
@@ -49,16 +50,21 @@ export class AddDetails implements OnInit {
       return;
     }
 
-    await this.invoiceService.addInvoiceDetail(this.account.accountId, {
-      date: this.currentDate,
-      rate: this.currentRate,
-      bags: this.noOfBags,
-      weight: this.totalWeight,
-      amount: this.totalAmount
-    });
+    this.errorMessage = '';
+    try {
+      await this.invoiceService.addInvoiceDetail(this.account.accountId, {
+        date: this.currentDate,
+        rate: this.currentRate,
+        bags: this.noOfBags,
+        weight: this.totalWeight,
+        amount: this.totalAmount
+      });
 
-    alert('Details added successfully to CSV!');
-    this.back.emit();
+      alert('Details added successfully to CSV!');
+      this.back.emit();
+    } catch (error) {
+      this.errorMessage = error instanceof Error ? error.message : String(error);
+    }
   }
 
   onCancel() {

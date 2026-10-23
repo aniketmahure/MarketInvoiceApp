@@ -1,0 +1,59 @@
+.invoice-navbar {
+  background-color: #ffffff;
+  border-bottom: 3px solid #2e7d32; /* Professional green branding matching invoice */
+  padding: 12px 20px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.navbar-container {
+  display: flex;
+  align-items: center;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.logo-box {
+  margin-right: 15px;
+}
+
+.icon-placeholder {
+  font-size: 36px;
+  background: #e8f5e9;
+  padding: 8px 12px;
+  border-radius: 8px;
+}
+
+.company-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.company-title {
+  margin: 0;
+  font-size: 25px;
+  font-weight: bold;
+  color: #1b5e20;
+  letter-spacing: 0.5px;
+}
+
+.subtitle {
+  margin: 2px 0;
+  font-size: 15px;
+  font-style: italic;
+  color: #555;
+}
+
+.address {
+  margin: 1px 0;
+  font-size: 15px;
+  color: #444;
+}
+
+.contact-license {
+  margin: 1px 0;
+  font-size: 15px;
+  color: #666;
+  font-weight: 500;
+}

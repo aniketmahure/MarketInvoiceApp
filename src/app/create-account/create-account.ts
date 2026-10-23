@@ -14,25 +14,33 @@ export class CreateAccount {
   name = '';
   surname = '';
   mobile = '';
+  address = '';
+  errorMessage = '';
   
   @Output() back = new EventEmitter<void>();
 
   constructor(private invoiceService: Invoice) {}
 
   async onCreate() {
-    if (!this.name || !this.surname) {
+    if (!this.name || !this.surname || !this.address) {
       alert('Please enter Name and Surname.');
       return;
     }
 
-    const newAcc = await this.invoiceService.createAccount({
-      name: this.name,
-      surname: this.surname,
-      mobile: this.mobile
-    });
+    this.errorMessage = '';
+    try {
+      const newAcc = await this.invoiceService.createAccount({
+        name: this.name,
+        surname: this.surname,
+        mobile: this.mobile,
+        address: this.address
+      });
 
-    alert(`Account created successfully in ${newAcc.fileName}! ID: ${newAcc.accountId}`);
-    this.back.emit();
+      alert(`Account created successfully in ${newAcc.folderName}/${newAcc.fileName}! ID: ${newAcc.accountId}`);
+      this.back.emit();
+    } catch (error) {
+      this.errorMessage = error instanceof Error ? error.message : String(error);
+    }
   }
 
   onCancel() {
