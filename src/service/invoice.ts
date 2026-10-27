@@ -58,6 +58,20 @@ export class Invoice {
     return newAccount;
   }
 
+  async deleteAccount(accountId: string): Promise<void> {
+    if (window.api?.deleteAccount) {
+      await window.api.deleteAccount(accountId);
+      return;
+    }
+
+    const accounts: CustomerAccount[] = JSON.parse(localStorage.getItem('market_accounts') || '[]');
+    localStorage.setItem(
+      'market_accounts',
+      JSON.stringify(accounts.filter((account) => account.accountId !== accountId))
+    );
+    localStorage.removeItem(`invoices_${accountId}`);
+  }
+
   async getInvoices(accountId: string, viewAll = false): Promise<InvoiceDetail[]> {
     const allInvoices: InvoiceDetail[] = window.api?.getAccountInvoices
       ? await window.api.getAccountInvoices(accountId)

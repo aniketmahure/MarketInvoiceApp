@@ -2,9 +2,9 @@ const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
-// Safe local CSV path inside user's home directory
-const csvPath = path.join(app.getPath('userData'), 'invoices.csv');
-const accountsPath = path.resolve('/softzer/invoices');
+const dataDirectory = path.join(app.getPath('documents'), 'MarketInvoiceApp');
+const csvPath = path.join(dataDirectory, 'invoices.csv');
+const accountsPath = path.join(dataDirectory, 'accounts');
 const accountCsvHeaders = [
   'recordType',
   'accountId',
@@ -122,8 +122,7 @@ function createWindow() {
     }
   });
 
-  // Load your compiled Angular app (or load localhost URL during development)
-  mainWindow.loadFile(path.join(__dirname, 'dist/market-invoice-app/browser/index.html'));
+  mainWindow.loadFile(path.join(__dirname, '../dist/market-invoice-app/browser/index.html'));
 }
 
 app.whenReady().then(() => {
@@ -155,6 +154,7 @@ ipcMain.handle('get-invoices', () => {
 });
 
 ipcMain.handle('save-invoice', (event, invoice) => {
+  fs.mkdirSync(dataDirectory, { recursive: true });
   const fileExists = fs.existsSync(csvPath);
   let line = `${invoice.customer},${invoice.amount},${invoice.date}\n`;
   
@@ -227,6 +227,11 @@ ipcMain.handle('create-account', (event, data) => {
     folderName: path.basename(directory),
     fileName: 'account.csv'
   };
+});
+
+ipcMain.handle('delete-account', (event, accountId) => {
+  const directory = findAccountDirectory(accountId);
+  fs.rmSync(directory, { recursive: true });
 });
 
 ipcMain.handle('get-account-invoices', (event, accountId) => {

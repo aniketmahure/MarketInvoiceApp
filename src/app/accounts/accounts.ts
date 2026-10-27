@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Invoice } from '../../service/invoice';
+import { Invoice, type CustomerAccount } from '../../service/invoice';
 import { AddDetails } from '../add-details/add-details';
 import { CreateAccount } from '../create-account/create-account';
 import { Navbar } from '../navbar/navbar';
@@ -15,7 +15,7 @@ import { Navbar } from '../navbar/navbar';
 })
 export class Accounts implements OnInit {
   searchQuery = '';
-  accounts: any[] = [];
+  accounts: CustomerAccount[] = [];
   selectedAccount: any = null;
   invoices: any[] = [];
   allInvoices: any[] = [];
@@ -24,8 +24,11 @@ export class Accounts implements OnInit {
   viewAll = false;
   totalBags = 0;
   totalAmount = 0;
+  labourChangesPerBag = 0;
   rate = 0;
   storageError = '';
+  printFromDate = '—';
+  printToDate = '—';
   
   // Navigation state: 'home' | 'create' | 'details' | 'add'
   currentView = 'home'; 
@@ -50,6 +53,26 @@ export class Accounts implements OnInit {
     await this.loadAccounts();
   }
 
+  async listAllAccounts() {
+    this.searchQuery = '';
+    await this.loadAccounts();
+  }
+
+  async deleteAccount(account: CustomerAccount) {
+    const accountName = `${account.name} ${account.surname}`;
+    const confirmed = window.confirm(
+      `Delete ${accountName} and permanently delete all of this account's details and invoices?`
+    );
+    if (!confirmed) return;
+
+    try {
+      await this.invoiceService.deleteAccount(account.accountId);
+      await this.loadAccounts();
+    } catch (error) {
+      this.storageError = this.errorMessage(error);
+    }
+  }
+
   goToCreate() {
     this.currentView = 'create';
   }
@@ -58,6 +81,9 @@ export class Accounts implements OnInit {
     if (this.selectedAccount?.accountId !== account.accountId) {
       this.fromDate = '';
       this.toDate = '';
+      this.labourChangesPerBag = 0;
+      this.printFromDate = '—';
+      this.printToDate = '—';
     }
     this.selectedAccount = account;
     this.viewAll = false;
@@ -92,6 +118,7 @@ export class Accounts implements OnInit {
     }
 
     this.calculateTotals();
+    this.updatePrintDateRange();
   }
 
   clearDateRange() {
@@ -116,6 +143,28 @@ export class Accounts implements OnInit {
       : null;
   }
 
+  private formatDate(timestamp: number | null): string {
+    if (timestamp === null) return '—';
+
+    const date = new Date(timestamp);
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    return `${day}/${month}/${date.getUTCFullYear()}`;
+  }
+
+  private updatePrintDateRange() {
+    const invoiceDates = this.invoices
+      .map((invoice) => this.parseDate(invoice.date))
+      .filter((date): date is number => date !== null);
+
+    this.printFromDate = invoiceDates.length
+      ? this.formatDate(Math.min(...invoiceDates))
+      : '—';
+    this.printToDate = invoiceDates.length
+      ? this.formatDate(Math.max(...invoiceDates))
+      : '—';
+  }
+
   async toggleViewAll() {
     this.viewAll = !this.viewAll;
     try {
@@ -129,6 +178,14 @@ export class Accounts implements OnInit {
   calculateTotals() {
     this.totalBags = this.invoices.reduce((sum, inv) => sum + Number(inv.bags), 0);
     this.totalAmount = this.invoices.reduce((sum, inv) => sum + Number(inv.amount), 0);
+  }
+
+  get totalLabourChanges(): number {
+    return this.totalBags * (Number(this.labourChangesPerBag) || 0);
+  }
+
+  get netTotalAmount(): number {
+    return this.totalAmount - this.totalLabourChanges;
   }
 
   goToAddDetails() {

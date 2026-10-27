@@ -10,6 +10,7 @@
         placeholder="Search by customer name, surname or account ID..." 
       />
       <button (click)="onSearch()">Search</button>
+      <button type="button" (click)="listAllAccounts()">List All Accounts</button>
     </div>
     <button class="btn-create" (click)="goToCreate()">Create Account</button>
   </header>
@@ -23,8 +24,14 @@
       <div class="folder-icon">📁</div>
       <div class="account-info">
         <h4>{{ acc.name }} {{ acc.surname }}</h4>
-        <p>ID: <strong>{{ acc.accountId }}</strong> | File: {{ acc.fileName }}</p>
+        <p>ID: {{ acc.accountId }}</p>
       </div>
+      <button
+        class="btn-delete"
+        type="button"
+        (click)="$event.stopPropagation(); deleteAccount(acc)">
+        Delete Account
+      </button>
     </div>
     <p *ngIf="accounts.length === 0" class="no-data">No accounts found.</p>
   </div>
@@ -37,10 +44,11 @@
   <button class="btn-back" (click)="backToHome()">← Back to Accounts</button>
   <h1 class="purchase-title">PURCHASE STATEMENT</h1>
   <div class="statement-bar">
-    <h3 class="farmer-name">Farmer : {{ selectedAccount.name }} {{ selectedAccount.surname }}</h3>
-    <h3 class="farmer-details" >{{ selectedAccount.address }}, Mob: {{ selectedAccount.mobile }}</h3>
-    <h3 class="farmer-details" ></h3>
-    <br>
+    <div class="statement-header">
+      <h3 class="farmer-name">Farmer: {{ selectedAccount.name }} {{ selectedAccount.surname }}</h3>
+      <p class="print-date-range">Statement Period: {{ printFromDate }} to {{ printToDate }}</p>
+    </div>
+    <p class="farmer-details">{{ selectedAccount.address }}, Mob: {{ selectedAccount.mobile }}</p>
   </div>
   
   <div class="invoice-header-row">
@@ -53,6 +61,11 @@
       <div class="date-filter-field">
         <label for="to-date">To</label>
         <input id="to-date" type="date" [(ngModel)]="toDate" (ngModelChange)="applyDateRange()" />
+      </div>
+
+      <div class="date-filter-field">
+        <label for="labour-changes">Labour changes per bag (₹)</label>
+        <input id="labour-changes" type="number" min="0" step="1.0" [(ngModel)]="labourChangesPerBag" />
       </div>
 
       <button class="btn-secondary" type="button" (click)="clearDateRange()">Clear dates</button>
@@ -80,7 +93,7 @@
         <th>No of Bags</th>
         <th>Quantity</th>
         <th>Rate</th>
-        <th>Total Amount (₹)</th>
+        <th>Total Amount</th>
       </tr>
     </thead>
     <tbody>
@@ -98,13 +111,33 @@
       </tr>
     </tbody>
     <br>
+    <br>
+    <br>
     <tfoot>
-      <tr class="total-row">
+      <!-- <tr class="total-row">
         <td><strong>Total</strong></td>
         <td><strong>{{ totalBags }} Bags</strong></td>
         <td></td>
+        <td><strong>Labour Changes: ₹{{ totalLabourChanges | number:'1.2-2' }}</strong></td>
+        <td>
+          <strong>₹{{ totalAmount | number:'1.2-2' }}</strong>
+          <small>After labour deduction: ₹{{ netTotalAmount | number:'1.2-2' }}</small>
+        </td>
+      </tr> -->
+      <tr class="total-row">
         <td></td>
-        <td><strong>₹{{ totalAmount | number:'1.2-2' }}</strong></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td>= ₹ {{ totalAmount | number:'1.2-2' }}
+        </td>
+      </tr>
+      <tr class="total-row">
+        <td><tr><b>Total</b></tr><tr><b>After charges</b></tr></td>
+        <td><strong>{{ totalBags }} Bags</strong></td>
+        <td></td>
+        <td>Labour charges: ₹ {{ totalLabourChanges | number:'1.2-2' }}</td>
+        <td><strong>₹ {{ netTotalAmount | number:'1.2-2' }}</strong></td>
       </tr>
     </tfoot>
   </table>

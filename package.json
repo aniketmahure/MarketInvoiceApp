@@ -1,13 +1,14 @@
 {
   "name": "market-invoice-app",
   "version": "0.0.0",
-  "main": "main.js",
+  "main": "src/main.js",
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test"
+    "test": "ng test",
+    "electron": "npm run build -- --base-href ./ && electron ."
   },
   "private": true,
   "packageManager": "npm@11.20.0",
@@ -25,6 +26,7 @@
     "@angular/build": "^22.2.3",
     "@angular/cli": "^22.2.3",
     "@angular/compiler-cli": "^22.2.0",
+    "electron": "^45.0.0",
     "jsdom": "^30.0.0",
     "prettier": "^3.8.1",
     "typescript": "~6.0.2",

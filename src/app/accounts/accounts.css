@@ -11,6 +11,9 @@
 .btn-back { background: #6c757d; margin-bottom: 15px; }
 .account-card { display: flex; align-items: center; background: #f8f9fa; padding: 12px; margin-bottom: 10px; border-radius: 6px; border: 1px solid #ddd; cursor: pointer; transition: background 0.2s; }
 .account-card:hover { background: #e9ecef; }
+.account-info { flex: 1; }
+.btn-delete { padding: 9px 12px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+.btn-delete:hover { background: #bb2d3b; }
 .folder-icon { font-size: 28px; margin-right: 15px; }
 .invoice-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
 .date-range-filter { display: flex; align-items: end; gap: 12px; flex-wrap: wrap; margin: 16px 0; }
@@ -22,30 +25,45 @@
 .invoice-table td { border: none; padding: 10px; text-align: center; }
 .invoice-table th { background: #989893; }
 .total-row { background: #e9ecef; font-size: 16px; }
+.total-row small { display: block; font-size: 13px; font-weight: normal; }
 .no-data { color: #6c757d; text-align: center; margin-top: 20px; }
 .storage-error { margin: 16px 20px; color: #b02a37; font-weight: bold; }
 .purchase-title { text-align: center;font-size: 24px; font-weight: bold; margin-bottom: 10px; font: optional; color: #065e15;background-color:#c7fcd4}
 .statement-bar {
-  background-color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 5px;
   border-bottom: 3px solid #2e7d32; /* Professional green branding matching invoice */
-  padding: 0px 20px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-  width: 100%;
-  box-sizing: border-box;
+}
+
+.statement-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-left: 15px;
+  margin-right: 15px;
 }
 
 .farmer-name {
-  margin: 1px 1px;
+  margin: 0;
   font-size: 20px;
   font-weight: bold;
 }
+
+.print-date-range {
+  margin: 0;
+  font-size: 14px;
+}
+
 .farmer-details {
-  margin: 1px 85px;
+  margin-top: 0px;
+  margin-left: 15px;
+  margin-right: 15px;
   font-size: 15px;
   color: #3a3939;
   font-weight: 500;
 }
-
 
 @media print {
   button,
@@ -54,6 +72,16 @@
   } */
   .btn-secondary{
     display: none !important;
+  }
+
+  .date-range-filter {
+    display: none;
+  }
+
+  .print-date-range {
+    display: block;
+    margin: 12px 0;
+    font-weight: bold;
   }
 
   html {

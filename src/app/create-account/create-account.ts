@@ -22,8 +22,13 @@ export class CreateAccount {
   constructor(private invoiceService: Invoice) {}
 
   async onCreate() {
-    if (!this.name || !this.surname || !this.address) {
+    if (!this.name || !this.surname) {
       alert('Please enter Name and Surname.');
+      return;
+    }
+
+    if (!this.address) {
+      alert('Please enter Address.');
       return;
     }
 
