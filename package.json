@@ -9,7 +9,7 @@
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "electron": "npm run build -- --base-href ./ && electron .",
-    "dist:win": "npm run build -- --base-href ./ && electron-builder --win nsis"
+    "dist:win": "npm run build -- --base-href ./ && electron-builder --win nsis --publish never"
   },
   "private": true,
   "packageManager": "npm@11.20.0",
