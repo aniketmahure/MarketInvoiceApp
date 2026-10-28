@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Invoice, type CustomerAccount } from '../../service/invoice';
@@ -24,7 +24,12 @@ export class Accounts implements OnInit {
   viewAll = false;
   totalBags = 0;
   totalAmount = 0;
+  totalAdvanceAmount = 0;
   labourChangesPerBag = 0;
+  advanceDate = this.todayInputDate();
+  advanceAmount = 0;
+  advanceError = '';
+  advanceSuccess = '';
   rate = 0;
   storageError = '';
   printFromDate = '—';
@@ -33,7 +38,10 @@ export class Accounts implements OnInit {
   // Navigation state: 'home' | 'create' | 'details' | 'add'
   currentView = 'home'; 
 
-  constructor(private invoiceService: Invoice) {}
+  constructor(
+    private invoiceService: Invoice,
+    private changeDetector: ChangeDetectorRef
+  ) {}
 
   async ngOnInit() {
     await this.loadAccounts();
@@ -87,6 +95,10 @@ export class Accounts implements OnInit {
     }
     this.selectedAccount = account;
     this.viewAll = false;
+    this.advanceDate = this.todayInputDate();
+    this.advanceAmount = 0;
+    this.advanceError = '';
+    this.advanceSuccess = '';
     try {
       await this.loadInvoicesData();
       this.storageError = '';
@@ -152,6 +164,18 @@ export class Accounts implements OnInit {
     return `${day}/${month}/${date.getUTCFullYear()}`;
   }
 
+  formatTableDate(value: string): string {
+    if (!value.includes('-')) return value;
+    return this.formatDate(this.parseDate(value));
+  }
+
+  private todayInputDate(): string {
+    const today = new Date();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${today.getFullYear()}-${month}-${day}`;
+  }
+
   private updatePrintDateRange() {
     const invoiceDates = this.invoices
       .map((invoice) => this.parseDate(invoice.date))
@@ -176,8 +200,18 @@ export class Accounts implements OnInit {
   }
 
   calculateTotals() {
-    this.totalBags = this.invoices.reduce((sum, inv) => sum + Number(inv.bags), 0);
-    this.totalAmount = this.invoices.reduce((sum, inv) => sum + Number(inv.amount), 0);
+    this.totalBags = this.invoices.reduce(
+      (sum, inv) => sum + (inv.entryType === 'advance' ? 0 : Number(inv.bags) || 0),
+      0
+    );
+    this.totalAmount = this.invoices.reduce(
+      (sum, inv) => sum + (inv.entryType === 'advance' ? 0 : Number(inv.amount) || 0),
+      0
+    );
+    this.totalAdvanceAmount = this.invoices.reduce(
+      (sum, inv) => sum + (inv.entryType === 'advance' ? Number(inv.amount) || 0 : 0),
+      0
+    );
   }
 
   get totalLabourChanges(): number {
@@ -185,11 +219,49 @@ export class Accounts implements OnInit {
   }
 
   get netTotalAmount(): number {
-    return this.totalAmount - this.totalLabourChanges;
+    return this.totalAmount - this.totalLabourChanges - this.totalAdvanceAmount;
+  }
+
+  async recordAdvance() {
+    if (this.parseDate(this.advanceDate) === null ||
+        !Number.isFinite(Number(this.advanceAmount)) || Number(this.advanceAmount) <= 0) {
+      this.advanceError = 'Please select a valid date and enter an advance amount greater than zero.';
+      this.advanceSuccess = '';
+      return;
+    }
+
+    this.advanceError = '';
+    this.advanceSuccess = '';
+    try {
+      const date = this.formatTableDate(this.advanceDate);
+      await this.invoiceService.addAdvanceDetail(
+        this.selectedAccount.accountId,
+        date,
+        Number(this.advanceAmount)
+      );
+      await this.loadInvoicesData();
+      this.advanceAmount = 0;
+      this.advanceSuccess = 'Advance recorded successfully.';
+      this.storageError = '';
+    } catch (error) {
+      this.advanceError = this.errorMessage(error);
+    }
   }
 
   goToAddDetails() {
     this.currentView = 'add';
+  }
+
+  async backToDetails() {
+    this.currentView = 'details';
+    try {
+      await this.loadInvoicesData();
+      this.storageError = '';
+    } catch (error) {
+      this.storageError = this.errorMessage(error);
+    } finally {
+      this.changeDetector.markForCheck();
+    }
   }
 
   printInvoice() {

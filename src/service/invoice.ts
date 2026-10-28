@@ -13,10 +13,11 @@ export interface CustomerAccount {
 
 export interface InvoiceDetail {
   date: string;
-  rate: number;
-  bags: number;
-  weight: number;
+  rate: number | '-';
+  bags: number | '-';
+  weight: number | '-';
   amount: number;
+  entryType?: 'advance';
 }
 
 @Injectable({
@@ -98,6 +99,25 @@ export class Invoice {
     const key = `invoices_${accountId}`;
     const invoices = JSON.parse(localStorage.getItem(key) || '[]');
     invoices.push(detail);
+    localStorage.setItem(key, JSON.stringify(invoices));
+  }
+
+  async addAdvanceDetail(accountId: string, date: string, amount: number): Promise<void> {
+    if (window.api?.addAdvanceDetail) {
+      await window.api.addAdvanceDetail(accountId, { date, amount });
+      return;
+    }
+
+    const key = `invoices_${accountId}`;
+    const invoices: InvoiceDetail[] = JSON.parse(localStorage.getItem(key) || '[]');
+    invoices.push({
+      entryType: 'advance',
+      date,
+      rate: '-',
+      bags: '-',
+      weight: '-',
+      amount
+    });
     localStorage.setItem(key, JSON.stringify(invoices));
   }
 

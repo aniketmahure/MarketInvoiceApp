@@ -236,13 +236,14 @@ ipcMain.handle('delete-account', (event, accountId) => {
 
 ipcMain.handle('get-account-invoices', (event, accountId) => {
   return readAccountCsv(findAccountDirectory(accountId))
-    .filter((record) => record.recordType === 'invoice')
+    .filter((record) => record.recordType === 'invoice' || record.recordType === 'advance')
     .map((record) => ({
       date: record.date,
-      rate: Number(record.rate),
-      bags: Number(record.bags),
-      weight: Number(record.weight),
-      amount: Number(record.amount)
+      rate: record.recordType === 'advance' ? '-' : Number(record.rate),
+      bags: record.recordType === 'advance' ? '-' : Number(record.bags),
+      weight: record.recordType === 'advance' ? '-' : Number(record.weight),
+      amount: Number(record.amount),
+      ...(record.recordType === 'advance' ? { entryType: 'advance' } : {})
     }));
 });
 
@@ -264,6 +265,26 @@ ipcMain.handle('add-invoice-detail', (event, accountId, detail) => {
     rate: detail.rate,
     bags: detail.bags,
     weight: detail.weight,
+    amount: detail.amount
+  }), 'utf8');
+});
+
+ipcMain.handle('add-advance-detail', (event, accountId, detail) => {
+  if (!detail || typeof detail !== 'object' ||
+      typeof detail.date !== 'string' || !detail.date.trim() ||
+      !Number.isFinite(Number(detail.amount)) || Number(detail.amount) <= 0) {
+    throw new Error('A valid advance date and amount greater than zero are required.');
+  }
+
+  const directory = findAccountDirectory(accountId);
+  const filePath = path.join(directory, 'account.csv');
+  fs.appendFileSync(filePath, makeCsvRow({
+    recordType: 'advance',
+    accountId,
+    date: detail.date.trim(),
+    rate: '-',
+    bags: '-',
+    weight: '-',
     amount: detail.amount
   }), 'utf8');
 });

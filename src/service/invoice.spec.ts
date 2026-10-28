@@ -26,4 +26,21 @@ describe('Invoice', () => {
       .toEqual([{ accountId: 'ACC-5678', name: 'Grace', surname: 'Hopper' }]);
     expect(localStorage.getItem('invoices_ACC-1234')).toBeNull();
   });
+
+  it('persists advance entries with hyphens in the invoice detail fields', async () => {
+    await service.addAdvanceDetail('ACC-1234', '10/03/2026', 75.5);
+
+    const savedEntries = JSON.parse(localStorage.getItem('invoices_ACC-1234') || '[]');
+    expect(savedEntries).toEqual([
+      {
+        entryType: 'advance',
+        date: '10/03/2026',
+        rate: '-',
+        bags: '-',
+        weight: '-',
+        amount: 75.5
+      }
+    ]);
+    await expect(service.getInvoices('ACC-1234', true)).resolves.toEqual(savedEntries);
+  });
 });

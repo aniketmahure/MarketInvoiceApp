@@ -63,11 +63,6 @@
         <input id="to-date" type="date" [(ngModel)]="toDate" (ngModelChange)="applyDateRange()" />
       </div>
 
-      <div class="date-filter-field">
-        <label for="labour-changes">Labour changes per bag (₹)</label>
-        <input id="labour-changes" type="number" min="0" step="1.0" [(ngModel)]="labourChangesPerBag" />
-      </div>
-
       <button class="btn-secondary" type="button" (click)="clearDateRange()">Clear dates</button>
       <p class="date-range-error" *ngIf="fromDate && toDate && fromDate > toDate">
       From date must be on or before To date.
@@ -80,11 +75,37 @@
         {{ viewAll ? 'Show Last 6 Months' : 'View All Invoices' }}
       </button>
       <button class="btn-primary" (click)="goToAddDetails()">Add Details</button>
-      <button class="btn-print" (click)="printInvoice()">Print Invoice</button>
     </div>
   </div>
 
-  
+  <div class="entry-sections">
+    <section class="entry-panel" aria-labelledby="advance-entry-title">
+      <h3 id="advance-entry-title">Record Advance Payment</h3>
+      <div class="entry-panel-fields">
+        <label>
+          Date paid
+          <input type="date" [(ngModel)]="advanceDate" />
+        </label>
+        <label>
+          Advance amount (₹)
+          <input type="number" min="0.01" step="0.01" [(ngModel)]="advanceAmount" />
+        </label>
+        <button class="btn-primary" type="button" (click)="recordAdvance()">Add Advance</button>
+      </div>
+      <p class="date-range-error" role="alert" *ngIf="advanceError">{{ advanceError }}</p>
+      <p class="advance-success" role="status" *ngIf="advanceSuccess">{{ advanceSuccess }}</p>
+    </section>
+
+    <section class="entry-panel" aria-labelledby="labour-entry-title">
+      <h3 id="labour-entry-title">Labour Charges</h3>
+      <div class="entry-panel-fields">
+        <label>
+          Labour charges per bag (₹)
+          <input id="labour-changes" type="number" min="0" step="1" [(ngModel)]="labourChangesPerBag" />
+        </label>
+      </div>
+    </section>
+  </div>
 
   <table class="invoice-table">
     <thead>
@@ -98,10 +119,10 @@
     </thead>
     <tbody>
       <tr *ngFor="let inv of invoices">
-        <td>{{ inv.date }}</td>
-        <td>{{ inv.bags }}</td>
-        <td>{{ inv.weight }}</td>
-        <td>₹{{ inv.rate | number:'1.2-2' }}</td>
+        <td>{{ formatTableDate(inv.date) }}</td>
+        <td>{{ inv.entryType === 'advance' ? '-' : inv.bags }}</td>
+        <td>{{ inv.entryType === 'advance' ? '-' : inv.weight }}</td>
+        <td>{{ inv.entryType === 'advance' ? '-' : ('₹' + (inv.rate | number:'1.2-2')) }}</td>
         <td>₹{{ inv.amount | number:'1.2-2' }}</td>
       </tr>
     </tbody>
@@ -125,22 +146,21 @@
         </td>
       </tr> -->
       <tr class="total-row">
+        <td><strong>Totals</strong></td>
+        <td><small>{{ totalBags }} Bags</small></td>
         <td></td>
-        <td></td>
-        <td></td>
-        <td></td>
-        <td>= ₹ {{ totalAmount | number:'1.2-2' }}
+        <td><small>Labour charges: ₹ {{ totalLabourChanges | number:'1.2-2' }}</small></td>
+        <td>
+          <small>= ₹{{ totalAmount | number:'1.2-2' }}</small>
+          <small>Advance paid: ₹{{ totalAdvanceAmount | number:'1.2-2' }}</small>
+          <b>Final Amount: ₹{{ netTotalAmount | number:'1.2-2' }}</b>
         </td>
-      </tr>
-      <tr class="total-row">
-        <td><tr><b>Total</b></tr><tr><b>After charges</b></tr></td>
-        <td><strong>{{ totalBags }} Bags</strong></td>
-        <td></td>
-        <td>Labour charges: ₹ {{ totalLabourChanges | number:'1.2-2' }}</td>
-        <td><strong>₹ {{ netTotalAmount | number:'1.2-2' }}</strong></td>
       </tr>
     </tfoot>
   </table>
+  <div class="print-actions">
+    <button class="btn-print" type="button" (click)="printInvoice()">Print Invoice</button>
+  </div>
 </div>
 
-<app-add-details *ngIf="currentView === 'add'" [account]="selectedAccount" (back)="selectAccount(selectedAccount)"></app-add-details>
+<app-add-details *ngIf="currentView === 'add'" [account]="selectedAccount" (back)="backToDetails()"></app-add-details>
