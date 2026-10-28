@@ -8,7 +8,8 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "electron": "npm run build -- --base-href ./ && electron ."
+    "electron": "npm run build -- --base-href ./ && electron .",
+    "dist:win": "npm run build -- --base-href ./ && electron-builder --win nsis"
   },
   "private": true,
   "packageManager": "npm@11.20.0",
@@ -27,9 +28,29 @@
     "@angular/cli": "^22.2.3",
     "@angular/compiler-cli": "^22.2.0",
     "electron": "^45.0.0",
+    "electron-builder": "^26.0.12",
     "jsdom": "^30.0.0",
     "prettier": "^3.8.1",
     "typescript": "~6.0.2",
     "vitest": "^5.0.0"
+  },
+  "build": {
+    "appId": "com.marketinvoice.app",
+    "productName": "Market Invoice App",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "src/main.js",
+      "src/preload.js",
+      "dist/market-invoice-app/browser/**/*"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
   }
 }
