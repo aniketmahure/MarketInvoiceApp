@@ -41,6 +41,23 @@ describe('Invoice', () => {
         amount: 75.5
       }
     ]);
-    await expect(service.getInvoices('ACC-1234', true)).resolves.toEqual(savedEntries);
+    await expect(service.getInvoices('ACC-1234', true)).resolves.toEqual([
+      { ...savedEntries[0], recordId: 0 }
+    ]);
+  });
+
+  it('deletes only the selected invoice record from browser storage', async () => {
+    const records = [
+      { date: '10/03/2026', rate: 25, bags: 2, weight: 4, amount: 50 },
+      { date: '10/03/2026', rate: 25, bags: 2, weight: 4, amount: 50 },
+      { date: '11/03/2026', rate: 30, bags: 3, weight: 5, amount: 60 },
+    ];
+    localStorage.setItem('invoices_ACC-1234', JSON.stringify(records));
+
+    const loadedRecords = await service.getInvoices('ACC-1234', true);
+    await service.deleteInvoiceDetail('ACC-1234', loadedRecords[1].recordId!);
+
+    expect(JSON.parse(localStorage.getItem('invoices_ACC-1234') || '[]'))
+      .toEqual([records[0], records[2]]);
   });
 });

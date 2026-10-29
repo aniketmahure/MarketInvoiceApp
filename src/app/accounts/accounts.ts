@@ -1,7 +1,7 @@
 import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Invoice, type CustomerAccount } from '../../service/invoice';
+import { Invoice, type CustomerAccount, type InvoiceDetail } from '../../service/invoice';
 import { AddDetails } from '../add-details/add-details';
 import { CreateAccount } from '../create-account/create-account';
 import { Navbar } from '../navbar/navbar';
@@ -249,6 +249,31 @@ export class Accounts implements OnInit {
       this.storageError = '';
     } catch (error) {
       this.advanceError = this.errorMessage(error);
+    } finally {
+      this.changeDetector.markForCheck();
+    }
+  }
+
+  async deleteInvoice(invoice: InvoiceDetail) {
+    if (invoice.recordId === undefined) {
+      this.storageError = 'Unable to identify the selected invoice record.';
+      return;
+    }
+
+    const recordType = invoice.entryType === 'advance' ? 'advance payment' : 'invoice';
+    if (!window.confirm(`Delete this ${recordType} dated ${this.formatTableDate(invoice.date)}?`)) {
+      return;
+    }
+
+    try {
+      await this.invoiceService.deleteInvoiceDetail(
+        this.selectedAccount.accountId,
+        invoice.recordId
+      );
+      await this.loadInvoicesData();
+      this.storageError = '';
+    } catch (error) {
+      this.storageError = this.errorMessage(error);
     }
   }
 

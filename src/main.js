@@ -113,8 +113,8 @@ function makeCsvRow(record) {
 
 function createWindow() {
   const mainWindow = new BrowserWindow({
-    width: 1024,
-    height: 768,
+    width: 1920,
+    height: 1080,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -236,8 +236,10 @@ ipcMain.handle('delete-account', (event, accountId) => {
 
 ipcMain.handle('get-account-invoices', (event, accountId) => {
   return readAccountCsv(findAccountDirectory(accountId))
-    .filter((record) => record.recordType === 'invoice' || record.recordType === 'advance')
-    .map((record) => ({
+    .map((record, recordId) => ({ record, recordId }))
+    .filter(({ record }) => record.recordType === 'invoice' || record.recordType === 'advance')
+    .map(({ record, recordId }) => ({
+      recordId,
       date: record.date,
       rate: record.recordType === 'advance' ? '-' : Number(record.rate),
       bags: record.recordType === 'advance' ? '-' : Number(record.bags),
@@ -287,4 +289,26 @@ ipcMain.handle('add-advance-detail', (event, accountId, detail) => {
     weight: '-',
     amount: detail.amount
   }), 'utf8');
+});
+
+ipcMain.handle('delete-invoice-detail', (event, accountId, recordId) => {
+  if (!Number.isInteger(recordId) || recordId < 0) {
+    throw new Error('A valid invoice record ID is required.');
+  }
+
+  const directory = findAccountDirectory(accountId);
+  const filePath = path.join(directory, 'account.csv');
+  const records = readAccountCsv(directory);
+  const record = records[recordId];
+  if (!record || record.accountId !== accountId ||
+      (record.recordType !== 'invoice' && record.recordType !== 'advance')) {
+    throw new Error('The selected invoice record was not found.');
+  }
+
+  records.splice(recordId, 1);
+  fs.writeFileSync(
+    filePath,
+    `${accountCsvHeaders.join(',')}\n${records.map(makeCsvRow).join('')}`,
+    'utf8'
+  );
 });

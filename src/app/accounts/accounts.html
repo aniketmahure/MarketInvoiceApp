@@ -1,6 +1,3 @@
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Alfa+Slab+One&family=Changa+One:ital@0;1&family=Patua+One&display=swap" rel="stylesheet">
 <app-navbar></app-navbar>
 <p class="storage-error" role="alert" *ngIf="storageError">{{ storageError }}</p>
 <div class="container" *ngIf="currentView === 'home'">
@@ -45,7 +42,7 @@
 
 <div class="container" *ngIf="currentView === 'details'">
   <button class="btn-back" (click)="backToHome()">← Back to Accounts</button>
-  <h1 class="purchase-title">PURCHASE STATEMENT</h1>
+  <h2 class="purchase-title">Purchase Statement</h2>
   <div class="statement-bar">
     <div class="statement-header">
       <h3 class="farmer-name">Farmer: {{ selectedAccount.name }} {{ selectedAccount.surname }}</h3>
@@ -118,6 +115,7 @@
         <th>Quantity</th>
         <th>Rate</th>
         <th>Total Amount</th>
+        <th class="delete-column" aria-label="Actions"></th>
       </tr>
     </thead>
     <tbody>
@@ -127,11 +125,19 @@
         <td>{{ inv.entryType === 'advance' ? '-' : inv.weight }}</td>
         <td>{{ inv.entryType === 'advance' ? '-' : ('₹' + (inv.rate | number:'1.2-2')) }}</td>
         <td>₹{{ inv.amount | number:'1.2-2' }}</td>
+        <td class="delete-column">
+          <button
+            class="btn-delete-invoice"
+            type="button"
+            [attr.aria-label]="'Delete record dated ' + formatTableDate(inv.date)"
+            title="Delete record"
+            (click)="deleteInvoice(inv)">×</button>
+        </td>
       </tr>
     </tbody>
     <tbody *ngIf="invoices.length === 0">
       <tr>
-        <td colspan="5" class="no-data">No invoices found for this date range.</td>
+        <td colspan="6" class="no-data">No invoices found for this date range.</td>
       </tr>
     </tbody>
     <br>
@@ -148,6 +154,7 @@
           <small>Advance paid: ₹{{ totalAdvanceAmount | number:'1.2-2' }}</small>
           <b>Final Amount: ₹{{ netTotalAmount | number:'1.2-2' }}</b>
         </td>
+        <td class="delete-column"></td>
       </tr>
     </tfoot>
   </table>

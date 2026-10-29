@@ -1,4 +1,4 @@
-.container { padding: 10px; font-family: Arial, sans-serif; }
+.container { padding: 10px; }
 .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
 .search-bar { display: flex; gap: 10px; width: 60%; }
 .search-bar input { flex: 1; padding: 10px; font-size: 14px; border: 1px solid #ccc; border-radius: 4px; }
@@ -14,6 +14,19 @@
 .account-info { flex: 1; }
 .btn-delete { padding: 9px 12px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
 .btn-delete:hover { background: #bb2d3b; }
+.btn-delete-invoice {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #dc3545;
+  color: #fff;
+  font-size: 17px;
+  line-height: 22px;
+  cursor: pointer;
+}
+.btn-delete-invoice:hover { background: #bb2d3b; }
 .folder-icon { font-size: 28px; margin-right: 15px; }
 .invoice-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
 .date-range-filter { display: flex; align-items: end; gap: 12px; flex-wrap: wrap; margin: 16px 0; }
@@ -31,12 +44,13 @@
 .invoice-table { width: 100%; border-collapse: collapse; margin-top: 10px; border: 0px; text-align:center}
 .invoice-table th { border: none; padding: 10px; text-align: center; }
 .invoice-table td { border: none; padding: 10px; text-align: center; }
-.invoice-table th { background: #989893; }
+.invoice-table .delete-column { width: 30px; padding: 4px; }
+.invoice-table th { background: #a4a4a461;}
 .total-row { background: #e9ecef; font-size: 16px; }
 .total-row small { display: block; font-size: 13px; font-weight: normal; }
 .no-data { color: #6c757d; text-align: center; margin-top: 20px; }
 .storage-error { margin: 16px 20px; color: #b02a37; font-weight: bold; }
-.purchase-title { text-align: center;font-family: "Changa One", sans-serif;font-weight: 300;font-style: normal; margin-bottom: 10px; color: #065e15;background-color:#c7fcd4}
+.purchase-title { text-align: center;font-weight: 10px; margin-bottom: 10px;background-color:#a4a4a461}
 .statement-bar {
   display: flex;
   flex-direction: column;
@@ -73,6 +87,10 @@
   font-weight: 500;
 }
 
+app-navbar {
+  display: none;
+}
+
 @media (max-width: 700px) {
   .entry-sections {
     grid-template-columns: 1fr;
@@ -80,6 +98,10 @@
 }
 
 @media print {
+  app-navbar {
+    display: block !important;
+  }
+
   button,
   /* .date-range-filter {
     display: none !important;

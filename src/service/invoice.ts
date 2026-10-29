@@ -18,6 +18,7 @@ export interface InvoiceDetail {
   weight: number | '-';
   amount: number;
   entryType?: 'advance';
+  recordId?: number;
 }
 
 @Injectable({
@@ -76,7 +77,8 @@ export class Invoice {
   async getInvoices(accountId: string, viewAll = false): Promise<InvoiceDetail[]> {
     const allInvoices: InvoiceDetail[] = window.api?.getAccountInvoices
       ? await window.api.getAccountInvoices(accountId)
-      : JSON.parse(localStorage.getItem(`invoices_${accountId}`) || '[]');
+      : (JSON.parse(localStorage.getItem(`invoices_${accountId}`) || '[]') as InvoiceDetail[])
+        .map((invoice, recordId) => ({ ...invoice, recordId }));
     if (viewAll) return allInvoices;
     
     // Filter last 6 months by default
@@ -118,6 +120,22 @@ export class Invoice {
       weight: '-',
       amount
     });
+    localStorage.setItem(key, JSON.stringify(invoices));
+  }
+
+  async deleteInvoiceDetail(accountId: string, recordId: number): Promise<void> {
+    if (window.api?.deleteInvoiceDetail) {
+      await window.api.deleteInvoiceDetail(accountId, recordId);
+      return;
+    }
+
+    const key = `invoices_${accountId}`;
+    const invoices: InvoiceDetail[] = JSON.parse(localStorage.getItem(key) || '[]');
+    if (!Number.isInteger(recordId) || recordId < 0 || recordId >= invoices.length) {
+      throw new Error('The selected invoice record was not found.');
+    }
+
+    invoices.splice(recordId, 1);
     localStorage.setItem(key, JSON.stringify(invoices));
   }
 

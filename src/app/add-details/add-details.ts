@@ -64,8 +64,6 @@ export class AddDetails implements OnInit {
         weight: this.totalWeight,
         amount: this.totalAmount
       });
-
-      alert('Details added successfully to CSV!');
       this.back.emit();
     } catch (error) {
       this.errorMessage = error instanceof Error ? error.message : String(error);

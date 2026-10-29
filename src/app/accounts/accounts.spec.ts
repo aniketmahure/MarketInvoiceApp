@@ -86,6 +86,72 @@ describe('Accounts', () => {
     ]);
   });
 
+  it('deletes the confirmed invoice record and reloads the table', async () => {
+    const invoiceService = TestBed.inject(Invoice);
+    const deleteSpy = vi.spyOn(invoiceService, 'deleteInvoiceDetail').mockResolvedValue();
+    const getInvoicesSpy = vi.spyOn(invoiceService, 'getInvoices').mockResolvedValue([]);
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    component.selectedAccount = { accountId: 'ACC-1234' };
+
+    await component.deleteInvoice({
+      recordId: 2,
+      date: '10/03/2026',
+      rate: 25,
+      bags: 2,
+      weight: 4,
+      amount: 50,
+    });
+
+    expect(deleteSpy).toHaveBeenCalledWith('ACC-1234', 2);
+    expect(getInvoicesSpy).toHaveBeenCalledWith('ACC-1234', false);
+    expect(component.invoices).toEqual([]);
+    expect(component.storageError).toBe('');
+    confirmSpy.mockRestore();
+  });
+
+  it('marks the view for checking after recording and reloading an advance', async () => {
+    const invoiceService = TestBed.inject(Invoice);
+    vi.spyOn(invoiceService, 'addAdvanceDetail').mockResolvedValue();
+    vi.spyOn(invoiceService, 'getInvoices').mockResolvedValue([
+      {
+        date: '29/10/2026',
+        rate: '-',
+        bags: '-',
+        weight: '-',
+        amount: 75,
+        entryType: 'advance',
+      },
+    ]);
+    const markForCheck = vi.spyOn(component['changeDetector'], 'markForCheck');
+    component.selectedAccount = { accountId: 'ACC-1234' };
+    component.advanceDate = '2026-10-29';
+    component.advanceAmount = 75;
+
+    await component.recordAdvance();
+
+    expect(component.invoices).toEqual([
+      {
+        date: '29/10/2026',
+        rate: '-',
+        bags: '-',
+        weight: '-',
+        amount: 75,
+        entryType: 'advance',
+      },
+    ]);
+    expect(component.advanceSuccess).toBe('Advance recorded successfully.');
+    expect(markForCheck).toHaveBeenCalled();
+  });
+
+  it('opens the platform print preview when printing the invoice', () => {
+    const printSpy = vi.spyOn(window, 'print').mockImplementation(() => {});
+
+    component.printInvoice();
+
+    expect(printSpy).toHaveBeenCalledOnce();
+    printSpy.mockRestore();
+  });
+
   it('deducts labour changes per bag from the total amount', () => {
     component.invoices = [
       { bags: 2, amount: 50 },
