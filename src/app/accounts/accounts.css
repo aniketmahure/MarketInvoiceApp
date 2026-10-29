@@ -1,4 +1,4 @@
-.container { padding: 20px; font-family: Arial, sans-serif; }
+.container { padding: 10px; font-family: Arial, sans-serif; }
 .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
 .search-bar { display: flex; gap: 10px; width: 60%; }
 .search-bar input { flex: 1; padding: 10px; font-size: 14px; border: 1px solid #ccc; border-radius: 4px; }
@@ -36,7 +36,7 @@
 .total-row small { display: block; font-size: 13px; font-weight: normal; }
 .no-data { color: #6c757d; text-align: center; margin-top: 20px; }
 .storage-error { margin: 16px 20px; color: #b02a37; font-weight: bold; }
-.purchase-title { text-align: center;font-family: "Changa One", sans-serif;font-weight: bold;font-style: normal; margin-bottom: 10px; font: optional; color: #065e15;background-color:#c7fcd4}
+.purchase-title { text-align: center;font-family: "Changa One", sans-serif;font-weight: 300;font-style: normal; margin-bottom: 10px; color: #065e15;background-color:#c7fcd4}
 .statement-bar {
   display: flex;
   flex-direction: column;

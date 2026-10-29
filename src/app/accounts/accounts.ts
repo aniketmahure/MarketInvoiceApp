@@ -121,12 +121,16 @@ export class Accounts implements OnInit {
         (startDate !== null && endDate !== null && startDate > endDate)) {
       this.invoices = [];
     } else {
-      this.invoices = this.allInvoices.filter((invoice) => {
-        const invoiceDate = this.parseDate(invoice.date);
-        return invoiceDate !== null &&
-          (startDate === null || invoiceDate >= startDate) &&
-          (endDate === null || invoiceDate <= endDate);
-      });
+      this.invoices = this.allInvoices
+        .filter((invoice) => {
+          const invoiceDate = this.parseDate(invoice.date);
+          return invoiceDate !== null &&
+            (startDate === null || invoiceDate >= startDate) &&
+            (endDate === null || invoiceDate <= endDate);
+        })
+        .sort((first, second) =>
+          this.parseDate(first.date)! - this.parseDate(second.date)!
+        );
     }
 
     this.calculateTotals();

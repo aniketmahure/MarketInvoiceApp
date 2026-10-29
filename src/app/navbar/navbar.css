@@ -46,8 +46,6 @@
 }
 
 .address {
-  margin: 1px 0;
-  font-size: 15px;
   color: #444;
 }
 
@@ -57,3 +55,76 @@
   color: #666;
   font-weight: 500;
 }
+
+.invoice-container {
+      width: 100%;
+      text-align: center;
+}
+
+/* Header Top Row (Lic No left, Contact Right) */
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+.contact-info {
+  text-align: right;
+  line-height: 1.4;
+}
+
+    /* Center Business Details */
+    .header-center {
+      text-align: center;
+      margin-top: -40px;
+    }
+
+    .header-center .main-title {
+      font-size: 45px;
+      font-weight: 900;
+      text-shadow: 1px 1px, 1px 1px, 1px 1px;
+      letter-spacing: 2px;
+      color: #015a16;
+      margin-bottom: 4px;
+    }
+
+    .header-center .sub-title {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 50px;
+      font-size: 22px;
+      font-weight: 600;
+      color: #008100;
+      margin-bottom: 2px;
+    }
+
+    .subtitle-chilies {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .subtitle-chilies img {
+      display: block;
+      width: 22px;
+      height: 22px;
+      object-fit: contain;
+    }
+
+    .subtitle-chilies img + img {
+      transform: scaleX(1);
+    }
+
+    .address {
+      text-align: center;
+      font-size: 14px;
+    }
+
+    .address p {
+      margin: 2px 0;
+      line-height: 1.2;
+    }

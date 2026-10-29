@@ -27,8 +27,7 @@ export class AddDetails implements OnInit {
     const today = new Date();
     const day = String(today.getDate()).padStart(2, '0');
     const month = String(today.getMonth() + 1).padStart(2, '0');
-    const year = today.getFullYear();
-    this.currentDate = `${day}/${month}/${year}`;
+    this.currentDate = `${today.getFullYear()}-${month}-${day}`;
   }
 
   get totalAmount(): number {
@@ -45,6 +44,12 @@ export class AddDetails implements OnInit {
   }
 
   async onAdd() {
+    const date = this.formatDateForStorage(this.currentDate);
+    if (!date) {
+      this.errorMessage = 'Please select a valid date.';
+      return;
+    }
+
     if (this.currentRate <= 0 || this.totalWeight <= 0) {
       alert('Please enter valid rate and total weight.');
       return;
@@ -53,7 +58,7 @@ export class AddDetails implements OnInit {
     this.errorMessage = '';
     try {
       await this.invoiceService.addInvoiceDetail(this.account.accountId, {
-        date: this.currentDate,
+        date,
         rate: this.currentRate,
         bags: this.noOfBags,
         weight: this.totalWeight,
@@ -65,6 +70,23 @@ export class AddDetails implements OnInit {
     } catch (error) {
       this.errorMessage = error instanceof Error ? error.message : String(error);
     }
+  }
+
+  private formatDateForStorage(value: string): string | null {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+    if (!match) return null;
+
+    const [, year, month, day] = match;
+    const parsedDate = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+    if (
+      parsedDate.getUTCFullYear() !== Number(year) ||
+      parsedDate.getUTCMonth() !== Number(month) - 1 ||
+      parsedDate.getUTCDate() !== Number(day)
+    ) {
+      return null;
+    }
+
+    return `${day}/${month}/${year}`;
   }
 
   onCancel() {

@@ -70,6 +70,22 @@ describe('Accounts', () => {
     expect(component.printToDate).toBe('11/03/2026');
   });
 
+  it('sorts invoices from older to newer regardless of stored order', () => {
+    component.allInvoices = [
+      { date: '01/01/2027', bags: 1, amount: 10 },
+      { date: '15/12/2026', bags: 2, amount: 20 },
+      { date: '02/01/2026', bags: 3, amount: 30 },
+    ];
+
+    component.applyDateRange();
+
+    expect(component.invoices.map((invoice) => invoice.date)).toEqual([
+      '02/01/2026',
+      '15/12/2026',
+      '01/01/2027',
+    ]);
+  });
+
   it('deducts labour changes per bag from the total amount', () => {
     component.invoices = [
       { bags: 2, amount: 50 },

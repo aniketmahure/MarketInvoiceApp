@@ -1,3 +1,6 @@
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Alfa+Slab+One&family=Changa+One:ital@0;1&family=Patua+One&display=swap" rel="stylesheet">
 <app-navbar></app-navbar>
 <p class="storage-error" role="alert" *ngIf="storageError">{{ storageError }}</p>
 <div class="container" *ngIf="currentView === 'home'">
@@ -135,16 +138,6 @@
     <br>
     <br>
     <tfoot>
-      <!-- <tr class="total-row">
-        <td><strong>Total</strong></td>
-        <td><strong>{{ totalBags }} Bags</strong></td>
-        <td></td>
-        <td><strong>Labour Changes: ₹{{ totalLabourChanges | number:'1.2-2' }}</strong></td>
-        <td>
-          <strong>₹{{ totalAmount | number:'1.2-2' }}</strong>
-          <small>After labour deduction: ₹{{ netTotalAmount | number:'1.2-2' }}</small>
-        </td>
-      </tr> -->
       <tr class="total-row">
         <td><strong>Totals</strong></td>
         <td><small>{{ totalBags }} Bags</small></td>
