@@ -8,7 +8,19 @@ declare global {
       deleteAccount: (accountId: string) => Promise<void>;
       getAccountInvoices: (accountId: string) => Promise<InvoiceDetail[]>;
       addInvoiceDetail: (accountId: string, detail: InvoiceDetail) => Promise<void>;
-      addAdvanceDetail: (accountId: string, detail: { date: string; amount: number }) => Promise<void>;
+      addAdvanceDetail: (accountId: string, detail: {
+        date: string;
+        amount: number;
+        labourChargePerBag: number;
+      }) => Promise<void>;
+      addClosureDetail: (accountId: string, detail: {
+        date: string;
+        labourChargePerBag: number;
+      }) => Promise<void>;
+      updateCurrentPeriodLabourCharge: (
+        accountId: string,
+        labourChargePerBag: number
+      ) => Promise<void>;
       deleteInvoiceDetail: (accountId: string, recordId: number) => Promise<void>;
       getInvoices: () => Promise<any[]>;
       saveInvoice: (invoice: any) => Promise<boolean>;

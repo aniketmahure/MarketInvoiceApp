@@ -43,6 +43,7 @@ describe('AddDetails', () => {
       bags: 2,
       weight: 4,
       amount: 50,
+      labourChargePerBag: 7,
     });
     alertSpy.mockRestore();
   });

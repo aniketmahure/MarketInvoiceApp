@@ -7,6 +7,9 @@ contextBridge.exposeInMainWorld('api', {
   getAccountInvoices: (accountId) => ipcRenderer.invoke('get-account-invoices', accountId),
   addInvoiceDetail: (accountId, detail) => ipcRenderer.invoke('add-invoice-detail', accountId, detail),
   addAdvanceDetail: (accountId, detail) => ipcRenderer.invoke('add-advance-detail', accountId, detail),
+  addClosureDetail: (accountId, detail) => ipcRenderer.invoke('add-closure-detail', accountId, detail),
+  updateCurrentPeriodLabourCharge: (accountId, labourChargePerBag) =>
+    ipcRenderer.invoke('update-current-period-labour-charge', accountId, labourChargePerBag),
   deleteInvoiceDetail: (accountId, recordId) => ipcRenderer.invoke('delete-invoice-detail', accountId, recordId),
   getInvoices: () => ipcRenderer.invoke('get-invoices'),
   saveInvoice: (invoice) => ipcRenderer.invoke('save-invoice', invoice),

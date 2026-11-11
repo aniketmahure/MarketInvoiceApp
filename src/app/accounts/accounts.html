@@ -52,31 +52,39 @@
   </div>
   
   <div class="invoice-header-row">
-    <div class="date-range-filter">
-      <div class="date-filter-field">
-        <label for="from-date">From</label>
-        <input id="from-date" type="date" [(ngModel)]="fromDate" (ngModelChange)="applyDateRange()" />
+    <div class="invoice-actions">
+      <label class="closure-year-filter" for="closure-year">Closure year</label>
+      <select
+        id="closure-year"
+        [(ngModel)]="selectedClosureYear"
+        (ngModelChange)="selectClosureYear($event)">
+        <option value="all">All years</option>
+        <option *ngFor="let year of closureYears" [value]="year">{{ year }}</option>
+      </select>
+      <div class="closure-navigation" aria-label="Closure period navigation">
+        <button
+          class="btn-secondary"
+          type="button"
+          (click)="previousClosurePeriod()"
+          [disabled]="!canNavigateToPreviousPeriod">
+          Previous Closure
+        </button>
+        <span aria-live="polite">{{ closurePeriodLabel }}</span>
+        <button
+          class="btn-secondary"
+          type="button"
+          (click)="nextClosurePeriod()"
+          [disabled]="!canNavigateToNextPeriod">
+          Next Closure
+        </button>
       </div>
-
-      <div class="date-filter-field">
-        <label for="to-date">To</label>
-        <input id="to-date" type="date" [(ngModel)]="toDate" (ngModelChange)="applyDateRange()" />
-      </div>
-
-      <button class="btn-secondary" type="button" (click)="clearDateRange()">Clear dates</button>
-      <p class="date-range-error" *ngIf="fromDate && toDate && fromDate > toDate">
-      From date must be on or before To date.
-      </p>
-      
-    </div>
-
-    <div>
-      <button class="btn-secondary" (click)="toggleViewAll()">
-        {{ viewAll ? 'Show Last 6 Months' : 'View All Invoices' }}
-      </button>
-      <button class="btn-primary" (click)="goToAddDetails()">Add Details</button>
+      <button
+        class="btn-primary"
+        (click)="goToAddDetails()"
+        [disabled]="!canEditLabourCharge">Add Details</button>
     </div>
   </div>
+  <p class="date-range-error" role="alert" *ngIf="closureError">{{ closureError }}</p>
 
   <div class="entry-sections">
     <section class="entry-panel" aria-labelledby="advance-entry-title">
@@ -90,7 +98,11 @@
           Advance amount (₹)
           <input type="number" min="0.01" step="0.01" [(ngModel)]="advanceAmount" />
         </label>
-        <button class="btn-primary" type="button" (click)="recordAdvance()">Add Advance</button>
+        <button
+          class="btn-primary"
+          type="button"
+          (click)="recordAdvance()"
+          [disabled]="!canEditLabourCharge">Add Advance</button>
       </div>
       <p class="date-range-error" role="alert" *ngIf="advanceError">{{ advanceError }}</p>
       <p class="advance-success" role="status" *ngIf="advanceSuccess">{{ advanceSuccess }}</p>
@@ -101,9 +113,20 @@
       <div class="entry-panel-fields">
         <label>
           Labour charges per bag (₹)
-          <input id="labour-changes" type="number" min="0" step="1" [(ngModel)]="labourChangesPerBag" />
+          <input
+            id="labour-changes"
+            type="number"
+            min="0"
+            step="0.01"
+            [(ngModel)]="labourChangesPerBag"
+            (blur)="onLabourChargeCommit()"
+            [disabled]="!canEditLabourCharge" />
         </label>
+        <p class="date-range-error" role="alert" *ngIf="labourError">{{ labourError }}</p>
+        <p class="advance-success" role="status" *ngIf="labourSuccess">{{ labourSuccess }}</p>
+        <p *ngIf="!canEditLabourCharge">Closed-period labour charges cannot be changed.</p>
       </div>
+      
     </section>
   </div>
 
@@ -119,14 +142,18 @@
       </tr>
     </thead>
     <tbody>
-      <tr *ngFor="let inv of invoices">
+      <tr
+        *ngFor="let inv of invoices"
+        [hidden]="inv.entryType === 'labour'"
+        [class.closure-row]="inv.entryType === 'closure'">
         <td>{{ formatTableDate(inv.date) }}</td>
-        <td>{{ inv.entryType === 'advance' ? '-' : inv.bags }}</td>
-        <td>{{ inv.entryType === 'advance' ? '-' : inv.weight }}</td>
-        <td>{{ inv.entryType === 'advance' ? '-' : ('₹' + (inv.rate | number:'1.2-2')) }}</td>
-        <td>₹{{ inv.amount | number:'1.2-2' }}</td>
+        <td>{{ inv.entryType === 'closure' ? 'Closure' : (inv.entryType === 'advance' ? '-' : inv.bags) }}</td>
+        <td>{{ inv.entryType === 'closure' ? 'Previous details closed' : (inv.entryType === 'advance' ? '-' : inv.weight) }}</td>
+        <td>{{ inv.entryType === 'closure' || inv.entryType === 'advance' ? '-' : ('₹' + (inv.rate | number:'1.2-2')) }}</td>
+        <td>{{ inv.entryType === 'closure' ? '—' : ('₹' + ((inv.amount ?? 0) | number:'1.2-2')) }}</td>
         <td class="delete-column">
           <button
+            *ngIf="inv.entryType !== 'closure'"
             class="btn-delete-invoice"
             type="button"
             [attr.aria-label]="'Delete record dated ' + formatTableDate(inv.date)"
@@ -137,7 +164,11 @@
     </tbody>
     <tbody *ngIf="invoices.length === 0">
       <tr>
-        <td colspan="6" class="no-data">No invoices found for this date range.</td>
+        <td colspan="6" class="no-data">
+          {{ selectedClosureYear === 'all'
+            ? 'No invoices found in this period.'
+            : 'No closure periods found for the selected year.' }}
+        </td>
       </tr>
     </tbody>
     <br>
@@ -160,7 +191,18 @@
   </table>
   <div class="print-actions">
     <button class="btn-print" type="button" (click)="printInvoice()">Print Invoice</button>
+    <button
+      class="btn-closure"
+      type="button"
+      (click)="closeCurrentPeriod()"
+      [disabled]="!canCloseCurrentPeriod">
+      Close Period
+    </button>
   </div>
 </div>
 
-<app-add-details *ngIf="currentView === 'add'" [account]="selectedAccount" (back)="backToDetails()"></app-add-details>
+<app-add-details
+  *ngIf="currentView === 'add'"
+  [account]="selectedAccount"
+  [labourChargePerBag]="labourChangesPerBag"
+  (back)="backToDetails()"></app-add-details>

@@ -2,12 +2,14 @@
 .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
 .search-bar { display: flex; gap: 10px; width: 60%; }
 .search-bar input { flex: 1; padding: 10px; font-size: 14px; border: 1px solid #ccc; border-radius: 4px; }
-.search-bar button, .btn-create, .btn-primary, .btn-secondary, .btn-print, .btn-back {
+.search-bar button, .btn-create, .btn-primary, .btn-secondary, .btn-print, .btn-back, .btn-closure {
   padding: 10px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;
 }
 .btn-secondary { background: #6c757d; margin-right: 8px; }
 .btn-primary { background: #28a745; margin-right: 8px; }
 .btn-print { background: #17a2b8; }
+.btn-closure { background: #ff0000; }
+.btn-closure:disabled { opacity: 0.55; cursor: not-allowed; }
 .btn-back { background: #6c757d; margin-bottom: 15px; }
 .account-card { display: flex; align-items: center; background: #f8f9fa; padding: 12px; margin-bottom: 10px; border-radius: 6px; border: 1px solid #ddd; cursor: pointer; transition: background 0.2s; }
 .account-card:hover { background: #e9ecef; }
@@ -29,9 +31,11 @@
 .btn-delete-invoice:hover { background: #bb2d3b; }
 .folder-icon { font-size: 28px; margin-right: 15px; }
 .invoice-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-.date-range-filter { display: flex; align-items: end; gap: 12px; flex-wrap: wrap; margin: 16px 0; }
-.date-filter-field { display: flex; flex-direction: column; gap: 5px; }
-.date-filter-field input { padding: 9px; border: 1px solid #ccc; border-radius: 4px; font: inherit; }
+.invoice-actions, .closure-navigation { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.closure-navigation { margin-right: 10px; }
+.closure-navigation span { white-space: nowrap; }
+.closure-year-filter { font-weight: bold; }
+.invoice-actions select { padding: 9px; border: 1px solid #ccc; border-radius: 4px; font: inherit; }
 .date-range-error { flex-basis: 100%; margin: 0; color: #b02a37; }
 .entry-sections { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 16px 0; }
 .entry-panel { min-width: 0; padding: 14px; border: 1px solid #ddd; border-radius: 6px; background: #f8f9fa; }
@@ -40,13 +44,14 @@
 .entry-panel-fields label { display: flex; flex-direction: column; gap: 5px; font-weight: bold; }
 .entry-panel-fields input { min-width: 180px; padding: 9px; border: 1px solid #ccc; border-radius: 4px; font: inherit; }
 .advance-success { margin: 8px 0 0; color: #216e39; }
-.print-actions { display: flex; justify-content: center; margin: 18px 0; }
+.print-actions { display: flex; justify-content: center; gap: 10px; margin: 18px 0; }
 .invoice-table { width: 100%; border-collapse: collapse; margin-top: 10px; border: 0px; text-align:center}
 .invoice-table th { border: none; padding: 10px; text-align: center; }
 .invoice-table td { border: none; padding: 10px; text-align: center; }
 .invoice-table .delete-column { width: 30px; padding: 4px; }
 .invoice-table th { background: #a4a4a461;}
 .total-row { background: #e9ecef; font-size: 16px; }
+.closure-row { background: #fff3cd; font-weight: bold; }
 .total-row small { display: block; font-size: 13px; font-weight: normal; }
 .no-data { color: #6c757d; text-align: center; margin-top: 20px; }
 .storage-error { margin: 16px 20px; color: #b02a37; font-weight: bold; }
@@ -103,15 +108,8 @@ app-navbar {
   }
 
   button,
-  /* .date-range-filter {
-    display: none !important;
-  } */
   .btn-secondary{
     display: none !important;
-  }
-
-  .date-range-filter {
-    display: none;
   }
 
   .entry-sections {

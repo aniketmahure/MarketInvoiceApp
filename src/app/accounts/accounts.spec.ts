@@ -8,6 +8,7 @@ describe('Accounts', () => {
   let fixture: ComponentFixture<Accounts>;
 
   beforeEach(async () => {
+    localStorage.clear();
     await TestBed.configureTestingModule({
       imports: [Accounts],
     }).compileComponents();
@@ -38,46 +39,46 @@ describe('Accounts', () => {
     ]);
   });
 
-  it('filters invoices inclusively by date and recalculates totals', () => {
-    component.allInvoices = [
-      { date: '09/03/2026', bags: 2, amount: 50 },
-      { date: '10/03/2026', bags: 3, amount: 75 },
-      { date: '11/03/2026', bags: 4, amount: 100 },
-      {
-        date: '10/03/2026',
-        bags: '-',
-        weight: '-',
-        rate: '-',
-        amount: 25,
-        entryType: 'advance'
-      },
-    ];
-    component.fromDate = '2026-03-10';
-    component.toDate = '2026-03-11';
+  it('filters closure periods by closure year and retains the ongoing period for all years', async () => {
+    const invoiceService = TestBed.inject(Invoice);
+    vi.spyOn(invoiceService, 'getInvoices').mockResolvedValue([
+      { recordId: 0, date: '30/12/2025', bags: 2, amount: 50 },
+      { recordId: 1, date: '31/12/2025', entryType: 'closure' },
+      { recordId: 2, date: '01/01/2026', bags: 3, amount: 75 },
+      { recordId: 3, date: '02/01/2026', entryType: 'closure' },
+      { recordId: 4, date: '03/01/2026', bags: 4, amount: 100 },
+    ]);
+    component.selectedAccount = { accountId: 'ACC-1234' };
 
-    component.applyDateRange();
+    await component.loadInvoicesData();
+    expect(component.closureYears).toEqual(['2026', '2025']);
 
-    expect(component.invoices.length).toBe(3);
-    expect(component.totalBags).toBe(7);
-    expect(component.totalAmount).toBe(175);
-    expect(component.totalAdvanceAmount).toBe(25);
-    expect(component.printFromDate).toBe('10/03/2026');
-    expect(component.printToDate).toBe('11/03/2026');
+    component.selectClosureYear('2025');
+    expect(component.invoices.map((invoice) => invoice.recordId)).toEqual([0, 1]);
+    expect(component.totalBags).toBe(2);
+    expect(component.totalAmount).toBe(50);
+    expect(component.canNavigateToPreviousPeriod).toBe(false);
+    expect(component.canNavigateToNextPeriod).toBe(false);
 
-    component.clearDateRange();
+    component.selectClosureYear('2026');
+    expect(component.invoices.map((invoice) => invoice.recordId)).toEqual([2, 3]);
+    expect(component.totalAmount).toBe(75);
 
-    expect(component.printFromDate).toBe('09/03/2026');
-    expect(component.printToDate).toBe('11/03/2026');
+    component.selectClosureYear('all');
+    expect(component.invoices.map((invoice) => invoice.recordId)).toEqual([4]);
+    expect(component.totalAmount).toBe(100);
   });
 
-  it('sorts invoices from older to newer regardless of stored order', () => {
-    component.allInvoices = [
+  it('sorts invoices from older to newer regardless of stored order', async () => {
+    const invoiceService = TestBed.inject(Invoice);
+    vi.spyOn(invoiceService, 'getInvoices').mockResolvedValue([
       { date: '01/01/2027', bags: 1, amount: 10 },
       { date: '15/12/2026', bags: 2, amount: 20 },
       { date: '02/01/2026', bags: 3, amount: 30 },
-    ];
+    ]);
+    component.selectedAccount = { accountId: 'ACC-1234' };
 
-    component.applyDateRange();
+    await component.loadInvoicesData();
 
     expect(component.invoices.map((invoice) => invoice.date)).toEqual([
       '02/01/2026',
@@ -103,7 +104,7 @@ describe('Accounts', () => {
     });
 
     expect(deleteSpy).toHaveBeenCalledWith('ACC-1234', 2);
-    expect(getInvoicesSpy).toHaveBeenCalledWith('ACC-1234', false);
+    expect(getInvoicesSpy).toHaveBeenCalledWith('ACC-1234', true);
     expect(component.invoices).toEqual([]);
     expect(component.storageError).toBe('');
     confirmSpy.mockRestore();
@@ -154,8 +155,8 @@ describe('Accounts', () => {
 
   it('deducts labour changes per bag from the total amount', () => {
     component.invoices = [
-      { bags: 2, amount: 50 },
-      { bags: 3, amount: 75 },
+      { date: '01/10/2026', bags: 2, amount: 50 },
+      { date: '02/10/2026', bags: 3, amount: 75 },
     ];
     component.calculateTotals();
     component.labourChangesPerBag = 2.5;
@@ -188,5 +189,135 @@ describe('Accounts', () => {
     expect(component.totalLabourChanges).toBe(10);
     expect(component.netTotalAmount).toBe(100);
     expect(component.formatTableDate('2026-03-10')).toBe('10/03/2026');
+  });
+
+  it('shows and calculates only the selected closure period', async () => {
+    const invoiceService = TestBed.inject(Invoice);
+    vi.spyOn(invoiceService, 'getInvoices').mockResolvedValue([
+      { recordId: 0, date: '01/10/2026', bags: 2, amount: 100 },
+      { recordId: 1, date: '02/10/2026', bags: '-', amount: 20, entryType: 'advance' },
+      { recordId: 2, date: '03/10/2026', entryType: 'closure' },
+      { recordId: 3, date: '04/10/2026', bags: 3, amount: 150 },
+      { recordId: 4, date: '05/10/2026', entryType: 'closure' },
+      { recordId: 5, date: '06/10/2026', bags: 1, amount: 60 },
+    ]);
+    component.selectedAccount = { accountId: 'ACC-1234' };
+
+    await component.loadInvoicesData();
+    expect(component.totalAmount).toBe(60);
+    expect(component.invoices.map((invoice) => invoice.recordId)).toEqual([5]);
+    expect(component.closurePeriodLabel).toBe('Period 3 of 3');
+
+    component.previousClosurePeriod();
+    expect(component.invoices.map((invoice) => invoice.recordId)).toEqual([3, 4]);
+    expect(component.totalAmount).toBe(150);
+
+    component.previousClosurePeriod();
+    expect(component.invoices.map((invoice) => invoice.recordId)).toEqual([0, 1, 2]);
+    expect(component.totalAmount).toBe(100);
+    expect(component.totalAdvanceAmount).toBe(20);
+
+    component.nextClosurePeriod();
+    expect(component.totalAmount).toBe(150);
+    expect(component.canNavigateToPreviousPeriod).toBe(true);
+    expect(component.canNavigateToNextPeriod).toBe(true);
+  });
+
+  it('closes the active period and opens an empty period for new details', async () => {
+    const invoiceService = TestBed.inject(Invoice);
+    vi.spyOn(invoiceService, 'addClosureDetail').mockResolvedValue();
+    vi.spyOn(invoiceService, 'getInvoices')
+      .mockResolvedValueOnce([
+        { recordId: 0, date: '01/10/2026', bags: 1, amount: 30 }
+      ])
+      .mockResolvedValueOnce([
+        { recordId: 0, date: '01/10/2026', bags: 1, amount: 30 },
+        { recordId: 1, date: '02/10/2026', entryType: 'closure' },
+      ]);
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    component.selectedAccount = { accountId: 'ACC-1234' };
+    await component.loadInvoicesData();
+
+    await component.closeCurrentPeriod();
+
+    expect(invoiceService.addClosureDetail).toHaveBeenCalledWith(
+      'ACC-1234',
+      expect.any(String),
+      7
+    );
+    expect(component.closurePeriodLabel).toBe('Period 2 of 2');
+    expect(component.invoices).toEqual([]);
+    component.previousClosurePeriod();
+    expect(component.invoices.map((invoice) => invoice.recordId)).toEqual([0, 1]);
+    expect(component.invoices[component.invoices.length - 1]?.entryType).toBe('closure');
+    expect(component.canCloseCurrentPeriod).toBe(false);
+  });
+
+  it('loads labour charges from each period and locks historical periods', async () => {
+    const invoiceService = TestBed.inject(Invoice);
+    const updateSpy = vi.spyOn(invoiceService, 'updateCurrentPeriodLabourCharge')
+      .mockResolvedValue();
+    vi.spyOn(invoiceService, 'getInvoices').mockResolvedValue([
+      {
+        recordId: 0,
+        date: '01/10/2026',
+        bags: 2,
+        amount: 100,
+        labourChargePerBag: 4
+      },
+      { recordId: 1, date: '02/10/2026', entryType: 'closure', labourChargePerBag: 4 },
+      { recordId: 2, date: '', entryType: 'labour', labourChargePerBag: 9 },
+    ]);
+    component.selectedAccount = { accountId: 'ACC-1234' };
+
+    await component.loadInvoicesData();
+    expect(component.labourChangesPerBag).toBe(9);
+    expect(component.canEditLabourCharge).toBe(true);
+
+    component.previousClosurePeriod();
+    expect(component.labourChangesPerBag).toBe(4);
+    expect(component.totalLabourChanges).toBe(8);
+    expect(component.canEditLabourCharge).toBe(false);
+    await component.onLabourChargeCommit();
+    expect(updateSpy).not.toHaveBeenCalled();
+  });
+
+  it('saves the first labour charge on blur without confirmation', async () => {
+    const invoiceService = TestBed.inject(Invoice);
+    const updateSpy = vi.spyOn(invoiceService, 'updateCurrentPeriodLabourCharge')
+      .mockResolvedValue();
+    vi.spyOn(invoiceService, 'getInvoices').mockResolvedValue([
+      { entryType: 'labour', date: '', labourChargePerBag: 6.5 }
+    ]);
+    component.selectedAccount = { accountId: 'ACC-1234' };
+    component.closurePeriods = [[]];
+    component.closurePeriodIndex = 0;
+    component.labourChangesPerBag = 6.5;
+    const confirmSpy = vi.spyOn(window, 'confirm');
+
+    await component.onLabourChargeCommit();
+
+    expect(updateSpy).toHaveBeenCalledWith('ACC-1234', 6.5);
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(component.savedLabourChargePerBag).toBe(6.5);
+    confirmSpy.mockRestore();
+  });
+
+  it('asks before changing a saved labour charge and restores it if declined', async () => {
+    const invoiceService = TestBed.inject(Invoice);
+    const updateSpy = vi.spyOn(invoiceService, 'updateCurrentPeriodLabourCharge')
+      .mockResolvedValue();
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    component.closurePeriods = [[]];
+    component.closurePeriodIndex = 0;
+    component.savedLabourChargePerBag = 7;
+    component.labourChangesPerBag = 5;
+
+    await component.onLabourChargeCommit();
+
+    expect(confirmSpy).toHaveBeenCalledWith('Do you want to make changes in charges?');
+    expect(updateSpy).not.toHaveBeenCalled();
+    expect(component.labourChangesPerBag).toBe(7);
+    confirmSpy.mockRestore();
   });
 });

@@ -17,8 +17,10 @@ const accountCsvHeaders = [
   'rate',
   'bags',
   'weight',
-  'amount'
+  'amount',
+  'labourChargePerBag'
 ];
+const legacyAccountCsvHeaders = accountCsvHeaders.slice(0, -1);
 
 function escapeCsv(value) {
   const text = String(value ?? '');
@@ -76,7 +78,9 @@ function readAccountCsv(directory) {
   const filePath = path.join(directory, 'account.csv');
   const rows = parseCsv(fs.readFileSync(filePath, 'utf8'));
   const headers = rows.shift();
-  if (!headers || headers.join(',') !== accountCsvHeaders.join(',')) {
+  if (!headers ||
+      (headers.join(',') !== accountCsvHeaders.join(',') &&
+       headers.join(',') !== legacyAccountCsvHeaders.join(','))) {
     throw new Error(`Invalid account CSV format: ${filePath}`);
   }
   return rows.map((values) => Object.fromEntries(
@@ -109,6 +113,62 @@ function findAccountDirectory(accountId) {
 
 function makeCsvRow(record) {
   return `${accountCsvHeaders.map((header) => escapeCsv(record[header])).join(',')}\n`;
+}
+
+function writeAccountCsv(directory, records) {
+  fs.writeFileSync(
+    path.join(directory, 'account.csv'),
+    `${accountCsvHeaders.join(',')}\n${records.map(makeCsvRow).join('')}`,
+    'utf8'
+  );
+}
+
+function dateTimestamp(value) {
+  if (typeof value !== 'string') return null;
+  const parts = value.includes('/')
+    ? value.split('/').reverse()
+    : value.split('-');
+  if (parts.length !== 3 || parts.some((part) => !/^\d+$/.test(part))) return null;
+
+  const [year, month, day] = parts.map(Number);
+  const timestamp = Date.UTC(year, month - 1, day);
+  const date = new Date(timestamp);
+  return date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+    ? timestamp
+    : null;
+}
+
+function assertDateAllowed(records, date) {
+  const timestamp = dateTimestamp(date);
+  if (timestamp === null) throw new Error('A valid invoice date is required.');
+
+  const lastClosure = [...records].reverse()
+    .find((record) => record.recordType === 'closure');
+  if (!lastClosure) return;
+
+  const closureTimestamp = dateTimestamp(lastClosure.date);
+  if (closureTimestamp === null) throw new Error('The saved closure date is invalid.');
+  if (timestamp < closureTimestamp) {
+    throw new Error('New details cannot be dated before the latest closure.');
+  }
+}
+
+function assertLabourRateAllowed(records, labourChargePerBag) {
+  if (!Number.isFinite(Number(labourChargePerBag)) || Number(labourChargePerBag) < 0) {
+    throw new Error('Labour charges per bag must be a valid amount of zero or more.');
+  }
+
+  const lastClosureIndex = records.reduce(
+    (lastIndex, record, index) => record.recordType === 'closure' ? index : lastIndex,
+    -1
+  );
+  const existingRate = records.slice(lastClosureIndex + 1)
+    .find((record) => record.labourChargePerBag !== '')?.labourChargePerBag;
+  if (existingRate !== undefined && Number(existingRate) !== Number(labourChargePerBag)) {
+    throw new Error('Save the labour charge for this period before adding details.');
+  }
 }
 
 function createWindow() {
@@ -237,15 +297,25 @@ ipcMain.handle('delete-account', (event, accountId) => {
 ipcMain.handle('get-account-invoices', (event, accountId) => {
   return readAccountCsv(findAccountDirectory(accountId))
     .map((record, recordId) => ({ record, recordId }))
-    .filter(({ record }) => record.recordType === 'invoice' || record.recordType === 'advance')
+    .filter(({ record }) =>
+      record.recordType === 'invoice' ||
+      record.recordType === 'advance' ||
+      record.recordType === 'closure' ||
+      record.recordType === 'labour'
+    )
     .map(({ record, recordId }) => ({
       recordId,
       date: record.date,
+      ...(record.recordType === 'closure' || record.recordType === 'labour'
+        ? { entryType: record.recordType }
+        : {}),
       rate: record.recordType === 'advance' ? '-' : Number(record.rate),
       bags: record.recordType === 'advance' ? '-' : Number(record.bags),
       weight: record.recordType === 'advance' ? '-' : Number(record.weight),
-      amount: Number(record.amount),
-      ...(record.recordType === 'advance' ? { entryType: 'advance' } : {})
+      amount: record.recordType === 'closure' ? 0 : Number(record.amount),
+      ...(record.labourChargePerBag !== ''
+        ? { labourChargePerBag: Number(record.labourChargePerBag) }
+        : {})
     }));
 });
 
@@ -259,36 +329,124 @@ ipcMain.handle('add-invoice-detail', (event, accountId, detail) => {
   }
 
   const directory = findAccountDirectory(accountId);
-  const filePath = path.join(directory, 'account.csv');
-  fs.appendFileSync(filePath, makeCsvRow({
+  const records = readAccountCsv(directory);
+  const labourChargePerBag = detail.labourChargePerBag ?? 7;
+  assertDateAllowed(records, detail.date.trim());
+  assertLabourRateAllowed(records, labourChargePerBag);
+  records.push({
     recordType: 'invoice',
     accountId,
     date: detail.date.trim(),
     rate: detail.rate,
     bags: detail.bags,
     weight: detail.weight,
-    amount: detail.amount
-  }), 'utf8');
+    amount: detail.amount,
+    labourChargePerBag
+  });
+  writeAccountCsv(directory, records);
 });
 
 ipcMain.handle('add-advance-detail', (event, accountId, detail) => {
   if (!detail || typeof detail !== 'object' ||
       typeof detail.date !== 'string' || !detail.date.trim() ||
-      !Number.isFinite(Number(detail.amount)) || Number(detail.amount) <= 0) {
+      !Number.isFinite(Number(detail.amount)) || Number(detail.amount) <= 0 ||
+      !Number.isFinite(Number(detail.labourChargePerBag ?? 7)) ||
+      Number(detail.labourChargePerBag ?? 7) < 0) {
     throw new Error('A valid advance date and amount greater than zero are required.');
   }
 
   const directory = findAccountDirectory(accountId);
-  const filePath = path.join(directory, 'account.csv');
-  fs.appendFileSync(filePath, makeCsvRow({
+  const records = readAccountCsv(directory);
+  const labourChargePerBag = detail.labourChargePerBag ?? 7;
+  assertDateAllowed(records, detail.date.trim());
+  assertLabourRateAllowed(records, labourChargePerBag);
+  records.push({
     recordType: 'advance',
     accountId,
     date: detail.date.trim(),
     rate: '-',
     bags: '-',
     weight: '-',
-    amount: detail.amount
-  }), 'utf8');
+    amount: detail.amount,
+    labourChargePerBag
+  });
+  writeAccountCsv(directory, records);
+});
+
+ipcMain.handle('add-closure-detail', (event, accountId, detail) => {
+  if (!detail || typeof detail !== 'object' ||
+      typeof detail.date !== 'string' || !detail.date.trim() ||
+      !Number.isFinite(Number(detail.labourChargePerBag)) ||
+      Number(detail.labourChargePerBag) < 0) {
+    throw new Error('A valid closure date and labour charge are required.');
+  }
+
+  const directory = findAccountDirectory(accountId);
+  const records = readAccountCsv(directory);
+  const lastClosureIndex = records.reduce(
+    (lastIndex, record, index) => record.recordType === 'closure' ? index : lastIndex,
+    -1
+  );
+  const activeRecords = records.slice(lastClosureIndex + 1)
+    .filter((record) => record.recordType === 'invoice' || record.recordType === 'advance');
+  if (activeRecords.length === 0) {
+    throw new Error('Add at least one invoice or advance before closing this period.');
+  }
+
+  const closureDate = detail.date.trim();
+  const closureTimestamp = dateTimestamp(closureDate);
+  if (closureTimestamp === null) throw new Error('A valid closure date is required.');
+  assertDateAllowed(records, closureDate);
+  const latestEntryDate = activeRecords.reduce((latest, record) => {
+    const entryDate = dateTimestamp(record.date);
+    if (entryDate === null) throw new Error('A saved invoice date is invalid.');
+    return Math.max(latest, entryDate);
+  }, 0);
+  if (closureTimestamp < latestEntryDate) {
+    throw new Error('The closure date cannot be before the latest invoice or advance.');
+  }
+
+  assertLabourRateAllowed(records, detail.labourChargePerBag);
+  records.push({
+    recordType: 'closure',
+    accountId,
+    date: closureDate,
+    labourChargePerBag: detail.labourChargePerBag
+  });
+  writeAccountCsv(directory, records);
+});
+
+ipcMain.handle('update-current-period-labour-charge', (event, accountId, labourChargePerBag) => {
+  if (!Number.isFinite(Number(labourChargePerBag)) || Number(labourChargePerBag) < 0) {
+    throw new Error('Labour charges per bag must be a valid amount of zero or more.');
+  }
+
+  const directory = findAccountDirectory(accountId);
+  const records = readAccountCsv(directory);
+  const lastClosureIndex = records.reduce(
+    (lastIndex, record, index) => record.recordType === 'closure' ? index : lastIndex,
+    -1
+  );
+  const currentPeriod = records.slice(lastClosureIndex + 1)
+    .filter((record) =>
+      record.recordType === 'invoice' ||
+      record.recordType === 'advance' ||
+      record.recordType === 'labour'
+    );
+  let updatedDetails = false;
+  for (const record of currentPeriod) {
+    record.labourChargePerBag = labourChargePerBag;
+    if (record.recordType !== 'labour') updatedDetails = true;
+  }
+  if (!updatedDetails && !currentPeriod.some((record) => record.recordType === 'labour')) {
+    records.push({
+      recordType: 'labour',
+      accountId,
+      date: '',
+      labourChargePerBag
+    });
+  }
+  writeAccountCsv(directory, records);
 });
 
 ipcMain.handle('delete-invoice-detail', (event, accountId, recordId) => {
@@ -297,7 +455,6 @@ ipcMain.handle('delete-invoice-detail', (event, accountId, recordId) => {
   }
 
   const directory = findAccountDirectory(accountId);
-  const filePath = path.join(directory, 'account.csv');
   const records = readAccountCsv(directory);
   const record = records[recordId];
   if (!record || record.accountId !== accountId ||
@@ -306,9 +463,5 @@ ipcMain.handle('delete-invoice-detail', (event, accountId, recordId) => {
   }
 
   records.splice(recordId, 1);
-  fs.writeFileSync(
-    filePath,
-    `${accountCsvHeaders.join(',')}\n${records.map(makeCsvRow).join('')}`,
-    'utf8'
-  );
+  writeAccountCsv(directory, records);
 });

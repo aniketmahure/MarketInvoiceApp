@@ -13,6 +13,7 @@ import { Invoice } from '../../service/invoice';
 
 export class AddDetails implements OnInit {
   @Input() account: any;
+  @Input() labourChargePerBag = 7;
   @Output() back = new EventEmitter<void>();
 
   currentDate = '';
@@ -62,7 +63,8 @@ export class AddDetails implements OnInit {
         rate: this.currentRate,
         bags: this.noOfBags,
         weight: this.totalWeight,
-        amount: this.totalAmount
+        amount: this.totalAmount,
+        labourChargePerBag: Number(this.labourChargePerBag)
       });
       this.back.emit();
     } catch (error) {
