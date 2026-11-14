@@ -126,6 +126,10 @@ app-navbar {
     font-weight: bold;
   }
 
+  .invoice-header-row{
+    display: none !important;
+  }
+
   html {
     -webkit-print-color-adjust: exact; /* Chrome, Safari, Edge */
     print-color-adjust: exact;         /* Standard property */

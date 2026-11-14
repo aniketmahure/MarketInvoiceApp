@@ -7,22 +7,22 @@
   <div class="form-grid">
     <div class="form-group">
       <label>Select Date:</label>
-      <input type="date" [(ngModel)]="currentDate" />
+      <input type="date" [(ngModel)]="currentDate" [disabled]="isSaving" />
     </div>
 
     <div class="form-group">
       <label>Current Rate (₹):</label>
-      <input type="number" [(ngModel)]="currentRate" placeholder="Enter rate" />
+      <input type="number" [(ngModel)]="currentRate" placeholder="Enter rate" [disabled]="isSaving" />
     </div>
 
     <div class="form-group">
       <label>No of Bags:</label>
-      <input type="number" [(ngModel)]="noOfBags" placeholder="Enter bags" />
+      <input type="number" [(ngModel)]="noOfBags" placeholder="Enter bags" [disabled]="isSaving" />
     </div>
 
     <div class="form-group">
       <label>Total Weight:</label>
-      <input type="number" [(ngModel)]="totalWeight" placeholder="Enter total weight" />
+      <input type="number" [(ngModel)]="totalWeight" placeholder="Enter total weight" [disabled]="isSaving" />
     </div>
 
     <div class="form-group full-width">
@@ -34,8 +34,10 @@
 
   <p class="form-error" role="alert" *ngIf="errorMessage">{{ errorMessage }}</p>
   <div class="button-group">
-    <button class="btn-add" (click)="onAdd()">Add Details</button>
-    <button class="btn-clear" (click)="onClear()">Clear</button>
-    <button class="btn-cancel" (click)="onCancel()">Cancel</button>
+    <button class="btn-add" (click)="onAdd()" [disabled]="isSaving">
+      {{ isSaving ? 'Saving...' : 'Add Details' }}
+    </button>
+    <button class="btn-clear" (click)="onClear()" [disabled]="isSaving">Clear</button>
+    <button class="btn-cancel" (click)="onCancel()" [disabled]="isSaving">Cancel</button>
   </div>
 </div>

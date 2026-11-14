@@ -92,3 +92,54 @@ npm test
 ```
 
 For more information about Angular CLI, see the [Angular CLI documentation](https://angular.dev/tools/cli).
+
+
+# Account Loading: Before and After
+
+## Before
+
+Opening an account could trigger account-list reads during every Angular content
+check, including checks caused by the invoice request. In Electron, each list
+read scans the account files, competing with the request needed to display the
+selected account.
+
+```mermaid
+flowchart TD
+    A[Open account list] --> B[Load account list]
+    B --> C[Select account]
+    C --> D[Request selected account invoices]
+    D --> E[Angular content check]
+    E --> F[Load account list again]
+    F --> G[Read and scan account files]
+    G --> E
+    G -. competes with .-> D
+    D --> H[Eventually render account details]
+```
+
+## After
+
+The account list loads on initialization or an explicit search/refresh. Selecting
+an account starts one invoice request. While it is pending, account switching is
+locked; the response is applied only if it still belongs to the selected
+account and latest request.
+
+```mermaid
+flowchart TD
+    A[Initialize account view] --> B[Load account list once]
+    B --> C[Select account]
+    C --> D[Clear prior account rows]
+    D --> E[Show loading status and lock account switching]
+    E --> F[Request selected account invoices]
+    F --> G{Request is current and account still selected?}
+    G -- No --> H[Ignore stale result]
+    G -- Yes --> I[Apply invoices and calculate totals]
+    I --> J[Clear loading status]
+    J --> K[Mark view for checking]
+    K --> L[Show account details]
+
+    M[Explicit search or refresh] --> B
+```
+
+Writes also capture the account ID at operation start and keep the UI locked
+until the save finishes, so later asynchronous steps cannot switch to a newly
+selected account.

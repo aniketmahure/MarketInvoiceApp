@@ -2,6 +2,15 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { vi } from 'vitest';
 import { Accounts } from './accounts';
 import { Invoice } from '../../service/invoice';
+import { OPERATION_TIMEOUT_MS } from '../../service/operation-deadline';
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
 
 describe('Accounts', () => {
   let component: Accounts;
@@ -22,6 +31,15 @@ describe('Accounts', () => {
     expect(component).toBeTruthy();
   });
 
+  it('does not reload the account list during content checks', () => {
+    const invoiceService = TestBed.inject(Invoice);
+    const loadAccounts = vi.spyOn(invoiceService, 'getAccounts');
+
+    fixture.detectChanges();
+
+    expect(loadAccounts).not.toHaveBeenCalled();
+  });
+
   it('returns to invoice details immediately while refreshing invoices', async () => {
     const invoiceService = TestBed.inject(Invoice);
     vi.spyOn(invoiceService, 'getInvoices').mockResolvedValue([
@@ -37,6 +55,79 @@ describe('Accounts', () => {
     expect(component.invoices).toEqual([
       { date: '10/03/2026', rate: 25, bags: 2, weight: 4, amount: 50 }
     ]);
+  });
+
+  it('ignores invoice results from an account that is no longer selected', async () => {
+    const invoiceService = TestBed.inject(Invoice);
+    const accountARequest = deferred<Awaited<ReturnType<Invoice['getInvoices']>>>();
+    const accountBRequest = deferred<Awaited<ReturnType<Invoice['getInvoices']>>>();
+    vi.spyOn(invoiceService, 'getInvoices').mockImplementation((accountId) =>
+      accountId === 'ACC-A' ? accountARequest.promise : accountBRequest.promise
+    );
+    component.selectedAccount = { accountId: 'ACC-A' };
+
+    const loadAccountA = component.loadInvoicesData('ACC-A');
+    component.selectedAccount = { accountId: 'ACC-B' };
+    const loadAccountB = component.loadInvoicesData('ACC-B');
+
+    accountARequest.resolve([{ date: '01/10/2026', bags: 2, amount: 50 }]);
+    await loadAccountA;
+    expect(component.invoices).toEqual([]);
+
+    accountBRequest.resolve([{ date: '02/10/2026', bags: 3, amount: 75 }]);
+    await loadAccountB;
+    expect(component.invoices).toEqual([
+      { date: '02/10/2026', bags: 3, amount: 75 }
+    ]);
+  });
+
+  it('keeps account selection locked while invoices are loading', async () => {
+    const invoiceService = TestBed.inject(Invoice);
+    const accountRequest = deferred<Awaited<ReturnType<Invoice['getInvoices']>>>();
+    vi.spyOn(invoiceService, 'getInvoices').mockReturnValue(accountRequest.promise);
+    const accountA = { accountId: 'ACC-A' };
+    const accountB = { accountId: 'ACC-B' };
+
+    const selection = component.selectAccount(accountA);
+    expect(component.isBusy).toBe(true);
+    await component.selectAccount(accountB);
+    expect(component.selectedAccount).toBe(accountA);
+
+    accountRequest.resolve([]);
+    await selection;
+    expect(component.isBusy).toBe(false);
+    expect(component.currentView).toBe('details');
+  });
+
+  it('marks the account view for checking when invoice loading completes', async () => {
+    const invoiceService = TestBed.inject(Invoice);
+    vi.spyOn(invoiceService, 'getInvoices').mockResolvedValue([]);
+    component.selectedAccount = { accountId: 'ACC-1234' };
+    const markForCheck = vi.spyOn(component['changeDetector'], 'markForCheck');
+
+    await component.loadInvoicesData('ACC-1234');
+
+    expect(component.isLoadingInvoices).toBe(false);
+    expect(markForCheck).toHaveBeenCalled();
+  });
+
+  it('returns to the account list and warns when invoice loading times out', async () => {
+    const invoiceService = TestBed.inject(Invoice);
+    vi.spyOn(invoiceService, 'getInvoices').mockReturnValue(new Promise(() => {}));
+    vi.useFakeTimers();
+
+    try {
+      const selection = component.selectAccount({ accountId: 'ACC-1234' });
+      await vi.advanceTimersByTimeAsync(OPERATION_TIMEOUT_MS);
+      await selection;
+
+      expect(component.currentView).toBe('home');
+      expect(component.selectedAccount).toBeNull();
+      expect(component.isBusy).toBe(false);
+      expect(component.operationWarning).toContain('try again');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('filters closure periods by closure year and retains the ongoing period for all years', async () => {
@@ -144,6 +235,31 @@ describe('Accounts', () => {
     expect(markForCheck).toHaveBeenCalled();
   });
 
+  it('keeps an advance write on its original account while saving', async () => {
+    const invoiceService = TestBed.inject(Invoice);
+    const labourChargeSaved = deferred<void>();
+    const updateSpy = vi.spyOn(invoiceService, 'updateCurrentPeriodLabourCharge')
+      .mockReturnValue(labourChargeSaved.promise);
+    const addAdvanceSpy = vi.spyOn(invoiceService, 'addAdvanceDetail').mockResolvedValue();
+    vi.spyOn(invoiceService, 'getInvoices').mockResolvedValue([]);
+    const accountA = { accountId: 'ACC-A' };
+    component.selectedAccount = accountA;
+    component.advanceDate = '2026-10-29';
+    component.advanceAmount = 75;
+
+    const save = component.recordAdvance();
+    expect(component.isBusy).toBe(true);
+    await component.selectAccount({ accountId: 'ACC-B' });
+    expect(component.selectedAccount).toBe(accountA);
+
+    labourChargeSaved.resolve();
+    await save;
+
+    expect(updateSpy).toHaveBeenCalledWith('ACC-A', 7);
+    expect(addAdvanceSpy).toHaveBeenCalledWith('ACC-A', '29/10/2026', 75, 7);
+    expect(component.isBusy).toBe(false);
+  });
+
   it('opens the platform print preview when printing the invoice', () => {
     const printSpy = vi.spyOn(window, 'print').mockImplementation(() => {});
 
@@ -221,6 +337,43 @@ describe('Accounts', () => {
     expect(component.totalAmount).toBe(150);
     expect(component.canNavigateToPreviousPeriod).toBe(true);
     expect(component.canNavigateToNextPeriod).toBe(true);
+  });
+
+  it('hides adding advances for a closed period', async () => {
+    const invoiceService = TestBed.inject(Invoice);
+    const addAdvanceSpy = vi.spyOn(invoiceService, 'addAdvanceDetail');
+    vi.spyOn(invoiceService, 'getInvoices').mockResolvedValue([
+      { recordId: 0, date: '01/10/2026', bags: 2, amount: 100 },
+      { recordId: 1, date: '02/10/2026', entryType: 'closure' },
+    ]);
+    component.selectedAccount = { accountId: 'ACC-1234' };
+    component.currentView = 'details';
+    await component.loadInvoicesData();
+    fixture.detectChanges();
+
+    const getAddAdvanceButton = () => Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('button')
+    ).find((button) => button.textContent?.trim() === 'Add Advance');
+    const getAddDetailsButton = () => Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('button')
+    ).find((button) => button.textContent?.trim() === 'Add Details');
+    expect(component.canAddAdvance).toBe(true);
+    expect(getAddAdvanceButton()?.disabled).toBe(false);
+    expect(getAddDetailsButton()).toBeDefined();
+
+    const previousClosureButton = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('button')
+    ).find((button) => button.textContent?.trim() === 'Previous Closure');
+    previousClosureButton?.click();
+    fixture.detectChanges();
+    expect(component.canAddAdvance).toBe(false);
+    expect(getAddAdvanceButton()).toBeUndefined();
+    expect(getAddDetailsButton()).toBeUndefined();
+
+    component.advanceDate = '2026-10-03';
+    component.advanceAmount = 50;
+    await component.recordAdvance();
+    expect(addAdvanceSpy).not.toHaveBeenCalled();
   });
 
   it('closes the active period and opens an empty period for new details', async () => {
@@ -315,7 +468,7 @@ describe('Accounts', () => {
 
     await component.onLabourChargeCommit();
 
-    expect(confirmSpy).toHaveBeenCalledWith('Do you want to make changes in charges?');
+    expect(confirmSpy).toHaveBeenCalledWith('Do you want to make changes in Labour charges?');
     expect(updateSpy).not.toHaveBeenCalled();
     expect(component.labourChangesPerBag).toBe(7);
     confirmSpy.mockRestore();

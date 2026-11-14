@@ -1,6 +1,8 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { vi } from 'vitest';
 import { AddDetails } from './add-details';
 import { Invoice } from '../../service/invoice';
+import { OPERATION_TIMEOUT_MS } from '../../service/operation-deadline';
 
 describe('AddDetails', () => {
   let component: AddDetails;
@@ -46,5 +48,50 @@ describe('AddDetails', () => {
       labourChargePerBag: 7,
     });
     alertSpy.mockRestore();
+  });
+
+  it('keeps the form locked until the invoice save finishes', async () => {
+    let finishSave!: () => void;
+    invoiceService.addInvoiceDetail.mockReturnValue(new Promise<void>((resolve) => {
+      finishSave = resolve;
+    }));
+    component.currentDate = '2026-03-10';
+    component.currentRate = 25;
+    component.noOfBags = 2;
+    component.totalWeight = 4;
+    const backSpy = vi.spyOn(component.back, 'emit');
+
+    const save = component.onAdd();
+    fixture.detectChanges();
+
+    expect(component.isSaving).toBe(true);
+    component.onCancel();
+    expect(backSpy).not.toHaveBeenCalled();
+
+    finishSave();
+    await save;
+    expect(component.isSaving).toBe(false);
+    expect(backSpy).toHaveBeenCalledOnce();
+  });
+
+  it('emits a timeout event if saving an invoice takes two minutes', async () => {
+    invoiceService.addInvoiceDetail.mockReturnValue(new Promise<void>(() => {}));
+    component.currentDate = '2026-03-10';
+    component.currentRate = 25;
+    component.noOfBags = 2;
+    component.totalWeight = 4;
+    const timeoutSpy = vi.spyOn(component.timedOut, 'emit');
+    vi.useFakeTimers();
+
+    try {
+      const save = component.onAdd();
+      await vi.advanceTimersByTimeAsync(OPERATION_TIMEOUT_MS);
+      await save;
+
+      expect(timeoutSpy).toHaveBeenCalledOnce();
+      expect(component.isSaving).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

@@ -2,6 +2,7 @@ import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Invoice } from '../../service/invoice';
+import { OperationDeadline, OperationTimeoutError } from '../../service/operation-deadline';
 
 @Component({
   imports: [CommonModule, FormsModule],
@@ -15,12 +16,14 @@ export class AddDetails implements OnInit {
   @Input() account: any;
   @Input() labourChargePerBag = 7;
   @Output() back = new EventEmitter<void>();
+  @Output() timedOut = new EventEmitter<void>();
 
   currentDate = '';
   currentRate: number = 0;
   noOfBags: number = 0;
   totalWeight: number = 0;
   errorMessage = '';
+  isSaving = false;
 
   constructor(private invoiceService: Invoice) {}
 
@@ -39,12 +42,14 @@ export class AddDetails implements OnInit {
   }
 
   onClear() {
+    if (this.isSaving) return;
     this.currentRate = 0;
     this.noOfBags = 0;
     this.totalWeight = 0;
   }
 
   async onAdd() {
+    if (this.isSaving) return;
     const date = this.formatDateForStorage(this.currentDate);
     if (!date) {
       this.errorMessage = 'Please select a valid date.';
@@ -57,18 +62,27 @@ export class AddDetails implements OnInit {
     }
 
     this.errorMessage = '';
+    const accountId = this.account.accountId;
+    this.isSaving = true;
+    const deadline = new OperationDeadline();
     try {
-      await this.invoiceService.addInvoiceDetail(this.account.accountId, {
+      await deadline.wait(this.invoiceService.addInvoiceDetail(accountId, {
         date,
         rate: this.currentRate,
         bags: this.noOfBags,
         weight: this.totalWeight,
         amount: this.totalAmount,
         labourChargePerBag: Number(this.labourChargePerBag)
-      });
+      }));
       this.back.emit();
     } catch (error) {
+      if (error instanceof OperationTimeoutError) {
+        this.timedOut.emit();
+        return;
+      }
       this.errorMessage = error instanceof Error ? error.message : String(error);
+    } finally {
+      this.isSaving = false;
     }
   }
 
@@ -90,6 +104,7 @@ export class AddDetails implements OnInit {
   }
 
   onCancel() {
+    if (this.isSaving) return;
     this.back.emit();
   }
 }

@@ -1,25 +1,31 @@
 <app-navbar></app-navbar>
 <p class="storage-error" role="alert" *ngIf="storageError">{{ storageError }}</p>
+<p class="storage-error" role="alert" *ngIf="operationWarning">{{ operationWarning }}</p>
 <div class="container" *ngIf="currentView === 'home'">
   <header class="header">
     <div class="search-bar">
-      <input 
+      <input
         type="text" 
         [(ngModel)]="searchQuery" 
         (input)="onSearch()" 
         placeholder="Search by customer name, surname or account ID..." 
+        [disabled]="isBusy"
       />
-      <button (click)="onSearch()">Search</button>
-      <button type="button" (click)="listAllAccounts()">List All Accounts</button>
+      <button (click)="onSearch()" [disabled]="isBusy">Search</button>
+      <button type="button" (click)="listAllAccounts()" [disabled]="isBusy">List All Accounts</button>
     </div>
-    <button class="btn-create" (click)="goToCreate()">Create Account</button>
+    <button class="btn-create" (click)="goToCreate()" [disabled]="isBusy">Create Account</button>
   </header>
 
   <div class="accounts-list">
     <h3>Customer Accounts</h3>
+    <p *ngIf="isLoadingAccounts" class="request-status" role="status">Loading accounts...</p>
+    <p *ngIf="isLoadingInvoices" class="request-status" role="status">Loading account invoices...</p>
     <div 
       class="account-card" 
       *ngFor="let acc of accounts" 
+      [attr.aria-disabled]="isBusy"
+      [style.pointer-events]="isBusy ? 'none' : null"
       (click)="selectAccount(acc)">
       <div class="folder-icon">📁</div>
       <div class="account-info">
@@ -29,6 +35,7 @@
       <button
         class="btn-delete"
         type="button"
+        [disabled]="isBusy"
         (click)="$event.stopPropagation(); deleteAccount(acc)">
         Delete Account
       </button>
@@ -41,7 +48,8 @@
 <app-create-account *ngIf="currentView === 'create'" (back)="backToHome()"></app-create-account>
 
 <div class="container" *ngIf="currentView === 'details'">
-  <button class="btn-back" (click)="backToHome()">← Back to Accounts</button>
+  <button class="btn-back" (click)="backToHome()" [disabled]="isBusy">← Back to Accounts</button>
+  <p *ngIf="isSaving" class="request-status" role="status">Saving changes...</p>
   <h2 class="purchase-title">Purchase Statement</h2>
   <div class="statement-bar">
     <div class="statement-header">
@@ -57,7 +65,8 @@
       <select
         id="closure-year"
         [(ngModel)]="selectedClosureYear"
-        (ngModelChange)="selectClosureYear($event)">
+        (ngModelChange)="selectClosureYear($event)"
+        [disabled]="isBusy">
         <option value="all">All years</option>
         <option *ngFor="let year of closureYears" [value]="year">{{ year }}</option>
       </select>
@@ -66,7 +75,7 @@
           class="btn-secondary"
           type="button"
           (click)="previousClosurePeriod()"
-          [disabled]="!canNavigateToPreviousPeriod">
+          [disabled]="isBusy || !canNavigateToPreviousPeriod">
           Previous Closure
         </button>
         <span aria-live="polite">{{ closurePeriodLabel }}</span>
@@ -74,15 +83,16 @@
           class="btn-secondary"
           type="button"
           (click)="nextClosurePeriod()"
-          [disabled]="!canNavigateToNextPeriod">
+          [disabled]="isBusy || !canNavigateToNextPeriod">
           Next Closure
         </button>
       </div>
     </div>
     <button
+        *ngIf="canEditLabourCharge"
         class="btn-primary"
         (click)="goToAddDetails()"
-        [disabled]="!canEditLabourCharge">Add Details</button>
+        [disabled]="isBusy">Add Details</button>
   </div>
   <p class="date-range-error" role="alert" *ngIf="closureError">{{ closureError }}</p>
 
@@ -92,17 +102,18 @@
       <div class="entry-panel-fields">
         <label>
           Date paid
-          <input type="date" [(ngModel)]="advanceDate" />
+          <input type="date" [(ngModel)]="advanceDate" [disabled]="isBusy" />
         </label>
         <label>
           Advance amount (₹)
-          <input type="number" min="0.01" step="0.01" [(ngModel)]="advanceAmount" />
+          <input type="number" min="0.01" step="0.01" [(ngModel)]="advanceAmount" [disabled]="isBusy" />
         </label>
         <button
+          *ngIf="canAddAdvance"
           class="btn-primary"
           type="button"
           (click)="recordAdvance()"
-          [disabled]="!canEditLabourCharge">Add Advance</button>
+          [disabled]="isBusy">Add Advance</button>
       </div>
       <p class="date-range-error" role="alert" *ngIf="advanceError">{{ advanceError }}</p>
       <p class="advance-success" role="status" *ngIf="advanceSuccess">{{ advanceSuccess }}</p>
@@ -120,7 +131,7 @@
             step="0.01"
             [(ngModel)]="labourChangesPerBag"
             (blur)="onLabourChargeCommit()"
-            [disabled]="!canEditLabourCharge" />
+            [disabled]="isBusy || !canEditLabourCharge" />
         </label>
         <p class="date-range-error" role="alert" *ngIf="labourError">{{ labourError }}</p>
         <p class="advance-success" role="status" *ngIf="labourSuccess">{{ labourSuccess }}</p>
@@ -158,6 +169,7 @@
             type="button"
             [attr.aria-label]="'Delete record dated ' + formatTableDate(inv.date)"
             title="Delete record"
+            [disabled]="isBusy"
             (click)="deleteInvoice(inv)">×</button>
         </td>
       </tr>
@@ -190,12 +202,13 @@
     </tfoot>
   </table>
   <div class="print-actions">
-    <button class="btn-print" type="button" (click)="printInvoice()">Print Invoice</button>
+    <button class="btn-print" type="button" (click)="printInvoice()" [disabled]="isBusy">Print Invoice</button>
     <button
       *ngIf="canCloseCurrentPeriod"
       class="btn-closure"
       type="button"
-      (click)="closeCurrentPeriod()">
+      (click)="closeCurrentPeriod()"
+      [disabled]="isBusy">
       Close Period
     </button>
   </div>
@@ -205,4 +218,5 @@
   *ngIf="currentView === 'add'"
   [account]="selectedAccount"
   [labourChargePerBag]="labourChangesPerBag"
+  (timedOut)="handleOperationTimeout()"
   (back)="backToDetails()"></app-add-details>

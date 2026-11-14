@@ -2,6 +2,7 @@ import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Invoice, type CustomerAccount, type InvoiceDetail } from '../../service/invoice';
+import { OperationDeadline, OperationTimeoutError } from '../../service/operation-deadline';
 import { AddDetails } from '../add-details/add-details';
 import { CreateAccount } from '../create-account/create-account';
 import { Navbar } from '../navbar/navbar';
@@ -36,8 +37,13 @@ export class Accounts implements OnInit {
   labourSuccess = '';
   rate = 0;
   storageError = '';
+  operationWarning = '';
   printFromDate = '—';
   printToDate = '—';
+  isLoadingAccounts = false;
+  isLoadingInvoices = false;
+  isSaving = false;
+  private invoiceLoadRequest = 0;
   
   // Navigation state: 'home' | 'create' | 'details' | 'add'
   currentView = 'home'; 
@@ -51,49 +57,63 @@ export class Accounts implements OnInit {
     await this.loadAccounts();
   }
 
-  async loadAccounts() {
+  async loadAccounts(deadline = new OperationDeadline()) {
+    this.operationWarning = '';
+    this.isLoadingAccounts = true;
     try {
-      this.accounts = await this.invoiceService.getAccounts(this.searchQuery);
+      this.accounts = await deadline.wait(this.invoiceService.getAccounts(this.searchQuery));
       this.storageError = '';
     } catch (error) {
+      if (this.handleOperationError(error)) return;
       this.accounts = [];
       this.storageError = this.errorMessage(error);
+    } finally {
+      this.isLoadingAccounts = false;
+      this.changeDetector.markForCheck();
     }
   }
 
   async onSearch() {
+    if (this.isBusy) return;
     await this.loadAccounts();
   }
 
   async listAllAccounts() {
+    if (this.isBusy) return;
     this.searchQuery = '';
     await this.loadAccounts();
   }
 
-  async ngAfterContentChecked() {
-    await this.loadAccounts();
-  }
-
   async deleteAccount(account: CustomerAccount) {
+    if (this.isBusy) return;
     const accountName = `${account.name} ${account.surname}`;
     const confirmed = window.confirm(
       `Delete ${accountName} and permanently delete all of this account's details and invoices?`
     );
     if (!confirmed) return;
 
+    this.isSaving = true;
+    const deadline = new OperationDeadline();
     try {
-      await this.invoiceService.deleteAccount(account.accountId);
-      await this.loadAccounts();
+      await deadline.wait(this.invoiceService.deleteAccount(account.accountId));
+      this.accounts = await deadline.wait(this.invoiceService.getAccounts(this.searchQuery));
     } catch (error) {
+      if (this.handleOperationError(error)) return;
       this.storageError = this.errorMessage(error);
+    } finally {
+      this.isSaving = false;
+      this.changeDetector.markForCheck();
     }
   }
 
   goToCreate() {
+    if (this.isBusy) return;
     this.currentView = 'create';
   }
 
   async selectAccount(account: any) {
+    if (this.isBusy) return;
+    this.operationWarning = '';
     if (this.selectedAccount?.accountId !== account.accountId) {
       this.labourChangesPerBag = 7;
       this.savedLabourChargePerBag = null;
@@ -101,6 +121,10 @@ export class Accounts implements OnInit {
       this.printToDate = '—';
       this.closurePeriodIndex = -1;
     }
+    this.allInvoices = [];
+    this.closurePeriods = [];
+    this.invoices = [];
+    this.calculateTotals();
     this.selectedAccount = account;
     this.selectedClosureYear = 'all';
     this.advanceDate = this.todayInputDate();
@@ -108,20 +132,78 @@ export class Accounts implements OnInit {
     this.advanceError = '';
     this.advanceSuccess = '';
     this.closureError = '';
+    const deadline = new OperationDeadline();
     try {
-      await this.loadInvoicesData();
+      if (!await this.loadInvoicesData(account.accountId, deadline)) return;
       this.storageError = '';
       this.currentView = 'details';
     } catch (error) {
-      this.storageError = this.errorMessage(error);
+      if (this.handleOperationError(error)) return;
+      if (this.selectedAccount?.accountId === account.accountId) {
+        this.storageError = this.errorMessage(error);
+      }
+    } finally {
+      this.changeDetector.markForCheck();
     }
   }
 
-  async loadInvoicesData() {
-    this.allInvoices = await this.invoiceService.getInvoices(this.selectedAccount.accountId, true);
-    this.rebuildClosurePeriods();
-    this.loadSelectedPeriodLabourCharge();
-    this.applySelectedPeriod();
+  async loadInvoicesData(
+    accountId: string = this.selectedAccount.accountId,
+    deadline = new OperationDeadline()
+  ): Promise<boolean> {
+    const requestId = ++this.invoiceLoadRequest;
+    this.isLoadingInvoices = true;
+    try {
+      const invoices = await deadline.wait(this.invoiceService.getInvoices(accountId, true));
+      if (requestId !== this.invoiceLoadRequest ||
+          this.selectedAccount?.accountId !== accountId) return false;
+
+      this.allInvoices = invoices;
+      this.rebuildClosurePeriods();
+      this.loadSelectedPeriodLabourCharge();
+      this.applySelectedPeriod();
+      return true;
+    } catch (error) {
+      if (requestId !== this.invoiceLoadRequest ||
+          this.selectedAccount?.accountId !== accountId) return false;
+      throw error;
+    } finally {
+      if (requestId === this.invoiceLoadRequest) {
+        this.isLoadingInvoices = false;
+        this.changeDetector.markForCheck();
+      }
+    }
+  }
+
+  get isBusy(): boolean {
+    return this.isLoadingAccounts || this.isLoadingInvoices || this.isSaving;
+  }
+
+  handleOperationTimeout() {
+    this.resetAfterTimeout();
+  }
+
+  private handleOperationError(error: unknown): boolean {
+    if (!(error instanceof OperationTimeoutError)) return false;
+    this.resetAfterTimeout();
+    return true;
+  }
+
+  private resetAfterTimeout() {
+    ++this.invoiceLoadRequest;
+    this.isLoadingAccounts = false;
+    this.isLoadingInvoices = false;
+    this.isSaving = false;
+    this.selectedAccount = null;
+    this.allInvoices = [];
+    this.closurePeriods = [];
+    this.invoices = [];
+    this.closurePeriodIndex = -1;
+    this.calculateTotals();
+    this.currentView = 'home';
+    this.operationWarning =
+      'The operation timed out. The screen was reloaded. Check whether it completed, then try again.';
+    this.changeDetector.markForCheck();
   }
 
   applySelectedPeriod() {
@@ -161,6 +243,7 @@ export class Accounts implements OnInit {
   }
 
   selectClosureYear(year: string) {
+    if (this.isBusy) return;
     this.selectedClosureYear = year;
     this.closurePeriodIndex = this.visibleClosurePeriods.length - 1;
     this.loadSelectedPeriodLabourCharge();
@@ -250,7 +333,14 @@ export class Accounts implements OnInit {
       this.closurePeriodIndex === this.visibleClosurePeriods.length - 1;
   }
 
+  get canAddAdvance(): boolean {
+    const period = this.visibleClosurePeriods[this.closurePeriodIndex];
+    return this.canEditLabourCharge &&
+      !period?.some((record) => record.entryType === 'closure');
+  }
+
   async onLabourChargeCommit() {
+    if (this.isBusy) return;
     const labourChargePerBag = Number(this.labourChangesPerBag);
     if (!this.canEditLabourCharge || !Number.isFinite(labourChargePerBag) ||
         labourChargePerBag < 0) {
@@ -271,18 +361,23 @@ export class Accounts implements OnInit {
 
     this.labourError = '';
     this.labourSuccess = '';
+    const accountId = this.selectedAccount.accountId;
+    this.isSaving = true;
+    const deadline = new OperationDeadline();
     try {
-      await this.invoiceService.updateCurrentPeriodLabourCharge(
-        this.selectedAccount.accountId,
+      await deadline.wait(this.invoiceService.updateCurrentPeriodLabourCharge(
+        accountId,
         labourChargePerBag
-      );
-      await this.loadInvoicesData();
+      ));
+      if (!await this.loadInvoicesData(accountId, deadline)) return;
       this.labourSuccess = 'Labour charge saved for this period.';
       this.storageError = '';
     } catch (error) {
+      if (this.handleOperationError(error)) return;
       this.labourError = this.errorMessage(error);
       this.labourChangesPerBag = this.savedLabourChargePerBag ?? 7;
     } finally {
+      this.isSaving = false;
       this.changeDetector.markForCheck();
     }
   }
@@ -308,14 +403,14 @@ export class Accounts implements OnInit {
   }
 
   previousClosurePeriod() {
-    if (!this.canNavigateToPreviousPeriod) return;
+    if (this.isBusy || !this.canNavigateToPreviousPeriod) return;
     this.closurePeriodIndex -= 1;
     this.loadSelectedPeriodLabourCharge();
     this.applySelectedPeriod();
   }
 
   nextClosurePeriod() {
-    if (!this.canNavigateToNextPeriod) return;
+    if (this.isBusy || !this.canNavigateToNextPeriod) return;
     this.closurePeriodIndex += 1;
     this.loadSelectedPeriodLabourCharge();
     this.applySelectedPeriod();
@@ -362,6 +457,7 @@ export class Accounts implements OnInit {
   }
 
   async recordAdvance() {
+    if (this.isBusy || !this.canAddAdvance) return;
     if (this.parseDate(this.advanceDate) === null ||
         !Number.isFinite(Number(this.advanceAmount)) || Number(this.advanceAmount) <= 0) {
       this.advanceError = 'Please select a valid date and enter an advance amount greater than zero.';
@@ -371,19 +467,22 @@ export class Accounts implements OnInit {
 
     this.advanceError = '';
     this.advanceSuccess = '';
+    const accountId = this.selectedAccount.accountId;
+    this.isSaving = true;
+    const deadline = new OperationDeadline();
     try {
       const date = this.formatTableDate(this.advanceDate);
-      await this.invoiceService.updateCurrentPeriodLabourCharge(
-        this.selectedAccount.accountId,
+      await deadline.wait(this.invoiceService.updateCurrentPeriodLabourCharge(
+        accountId,
         Number(this.labourChangesPerBag)
-      );
-      await this.invoiceService.addAdvanceDetail(
-        this.selectedAccount.accountId,
+      ));
+      await deadline.wait(this.invoiceService.addAdvanceDetail(
+        accountId,
         date,
         Number(this.advanceAmount),
         Number(this.labourChangesPerBag)
-      );
-      await this.loadInvoicesData();
+      ));
+      if (!await this.loadInvoicesData(accountId, deadline)) return;
       this.closurePeriodIndex = this.visibleClosurePeriods.length - 1;
       this.loadSelectedPeriodLabourCharge();
       this.applySelectedPeriod();
@@ -391,13 +490,16 @@ export class Accounts implements OnInit {
       this.advanceSuccess = 'Advance recorded successfully.';
       this.storageError = '';
     } catch (error) {
+      if (this.handleOperationError(error)) return;
       this.advanceError = this.errorMessage(error);
     } finally {
+      this.isSaving = false;
       this.changeDetector.markForCheck();
     }
   }
 
   async closeCurrentPeriod() {
+    if (this.isBusy) return;
     if (!this.canCloseCurrentPeriod) {
       this.closureError = 'Add at least one invoice or advance before closing this period.';
       return;
@@ -408,29 +510,36 @@ export class Accounts implements OnInit {
     }
 
     this.closureError = '';
+    const accountId = this.selectedAccount.accountId;
+    this.isSaving = true;
+    const deadline = new OperationDeadline();
     try {
-      await this.invoiceService.updateCurrentPeriodLabourCharge(
-        this.selectedAccount.accountId,
+      await deadline.wait(this.invoiceService.updateCurrentPeriodLabourCharge(
+        accountId,
         Number(this.labourChangesPerBag)
-      );
-      await this.invoiceService.addClosureDetail(
-        this.selectedAccount.accountId,
+      ));
+      await deadline.wait(this.invoiceService.addClosureDetail(
+        accountId,
         this.formatTableDate(this.todayInputDate()),
         Number(this.labourChangesPerBag)
-      );
+      ));
+      if (this.selectedAccount?.accountId !== accountId) return;
       this.closurePeriodIndex = -1;
       this.selectedClosureYear = 'all';
-      await this.loadInvoicesData();
+      if (!await this.loadInvoicesData(accountId, deadline)) return;
       this.closureError = '';
       this.storageError = '';
     } catch (error) {
+      if (this.handleOperationError(error)) return;
       this.closureError = this.errorMessage(error);
     } finally {
+      this.isSaving = false;
       this.changeDetector.markForCheck();
     }
   }
 
   async deleteInvoice(invoice: InvoiceDetail) {
+    if (this.isBusy) return;
     if (invoice.recordId === undefined) {
       this.storageError = 'Unable to identify the selected invoice record.';
       return;
@@ -441,41 +550,60 @@ export class Accounts implements OnInit {
       return;
     }
 
+    const accountId = this.selectedAccount.accountId;
+    this.isSaving = true;
+    const deadline = new OperationDeadline();
     try {
-      await this.invoiceService.deleteInvoiceDetail(
-        this.selectedAccount.accountId,
+      await deadline.wait(this.invoiceService.deleteInvoiceDetail(
+        accountId,
         invoice.recordId
-      );
-      await this.loadInvoicesData();
+      ));
+      if (!await this.loadInvoicesData(accountId, deadline)) return;
       this.storageError = '';
     } catch (error) {
+      if (this.handleOperationError(error)) return;
       this.storageError = this.errorMessage(error);
+    } finally {
+      this.isSaving = false;
+      this.changeDetector.markForCheck();
     }
   }
 
   async goToAddDetails() {
-    if (!this.canEditLabourCharge) return;
+    if (this.isBusy || !this.canEditLabourCharge) return;
+    const accountId = this.selectedAccount.accountId;
+    this.isSaving = true;
+    const deadline = new OperationDeadline();
     try {
-      await this.invoiceService.updateCurrentPeriodLabourCharge(
-        this.selectedAccount.accountId,
+      await deadline.wait(this.invoiceService.updateCurrentPeriodLabourCharge(
+        accountId,
         Number(this.labourChangesPerBag)
-      );
+      ));
+      if (this.selectedAccount?.accountId !== accountId) return;
       this.labourError = '';
       this.currentView = 'add';
     } catch (error) {
+      if (this.handleOperationError(error)) return;
       this.labourError = this.errorMessage(error);
+    } finally {
+      this.isSaving = false;
+      this.changeDetector.markForCheck();
     }
   }
 
   async backToDetails() {
+    if (this.isBusy) return;
+    const accountId = this.selectedAccount.accountId;
     this.currentView = 'details';
+    const deadline = new OperationDeadline();
     try {
-      await this.loadInvoicesData();
+      if (!await this.loadInvoicesData(accountId, deadline)) return;
       this.closurePeriodIndex = this.visibleClosurePeriods.length - 1;
       this.loadSelectedPeriodLabourCharge();
       this.applySelectedPeriod();
       this.storageError = '';
     } catch (error) {
+      if (this.handleOperationError(error)) return;
       this.storageError = this.errorMessage(error);
     } finally {
       this.changeDetector.markForCheck();
@@ -487,6 +615,9 @@ export class Accounts implements OnInit {
   }
 
   async backToHome() {
+    if (this.isBusy) return;
+    ++this.invoiceLoadRequest;
+    this.isLoadingInvoices = false;
     this.currentView = 'home';
     this.selectedAccount = null;
     await this.loadAccounts();
