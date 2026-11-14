@@ -70,6 +70,10 @@ export class Accounts implements OnInit {
     await this.loadAccounts();
   }
 
+  async ngAfterContentChecked() {
+    await this.loadAccounts();
+  }
+
   async deleteAccount(account: CustomerAccount) {
     const accountName = `${account.name} ${account.surname}`;
     const confirmed = window.confirm(

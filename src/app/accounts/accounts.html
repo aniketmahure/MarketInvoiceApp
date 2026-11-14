@@ -78,11 +78,11 @@
           Next Closure
         </button>
       </div>
-      <button
+    </div>
+    <button
         class="btn-primary"
         (click)="goToAddDetails()"
         [disabled]="!canEditLabourCharge">Add Details</button>
-    </div>
   </div>
   <p class="date-range-error" role="alert" *ngIf="closureError">{{ closureError }}</p>
 
@@ -149,7 +149,7 @@
         <td>{{ formatTableDate(inv.date) }}</td>
         <td>{{ inv.entryType === 'closure' ? 'Closure' : (inv.entryType === 'advance' ? '-' : inv.bags) }}</td>
         <td>{{ inv.entryType === 'closure' ? 'Previous details closed' : (inv.entryType === 'advance' ? '-' : inv.weight) }}</td>
-        <td>{{ inv.entryType === 'closure' || inv.entryType === 'advance' ? '-' : ('₹' + (inv.rate | number:'1.2-2')) }}</td>
+        <td>{{ ( inv.entryType === 'closure' || inv.entryType === 'advance' ) ? '-' : ('₹' + (inv.rate | number:'1.2-2')) }}</td>
         <td>{{ inv.entryType === 'closure' ? '—' : ('₹' + ((inv.amount ?? 0) | number:'1.2-2')) }}</td>
         <td class="delete-column">
           <button
@@ -192,10 +192,10 @@
   <div class="print-actions">
     <button class="btn-print" type="button" (click)="printInvoice()">Print Invoice</button>
     <button
+      *ngIf="canCloseCurrentPeriod"
       class="btn-closure"
       type="button"
-      (click)="closeCurrentPeriod()"
-      [disabled]="!canCloseCurrentPeriod">
+      (click)="closeCurrentPeriod()">
       Close Period
     </button>
   </div>

@@ -306,7 +306,9 @@ ipcMain.handle('get-account-invoices', (event, accountId) => {
     .map(({ record, recordId }) => ({
       recordId,
       date: record.date,
-      ...(record.recordType === 'closure' || record.recordType === 'labour'
+      ...(record.recordType === 'advance' ||
+        record.recordType === 'closure' ||
+        record.recordType === 'labour'
         ? { entryType: record.recordType }
         : {}),
       rate: record.recordType === 'advance' ? '-' : Number(record.rate),
