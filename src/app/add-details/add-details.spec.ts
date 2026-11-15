@@ -74,6 +74,51 @@ describe('AddDetails', () => {
     expect(backSpy).toHaveBeenCalledOnce();
   });
 
+  it('shows a popup when the invoice date is before the latest closure', async () => {
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+    fixture.componentRef.setInput('latestClosureDate', '12/03/2026');
+    component.currentDate = '2026-03-10';
+    component.currentRate = 25;
+    component.noOfBags = 2;
+    component.totalWeight = 4;
+
+    await component.onAdd();
+
+    expect(alertSpy).toHaveBeenCalledWith(
+      'New details cannot be dated before the latest closure.'
+    );
+    expect(invoiceService.addInvoiceDetail).not.toHaveBeenCalled();
+    expect(component.errorMessage).toBe(
+      'New details cannot be dated before the latest closure.'
+    );
+    expect(component.isSaving).toBe(false);
+    alertSpy.mockRestore();
+  });
+
+  it('displays the exact closure-date message if the backend rejects the save', async () => {
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+    invoiceService.addInvoiceDetail.mockRejectedValue(
+      new Error(
+        "Error invoking remote method 'add-invoice-detail': Error: " +
+        'New details cannot be dated before the latest closure.'
+      )
+    );
+    component.currentDate = '2026-03-10';
+    component.currentRate = 25;
+    component.noOfBags = 2;
+    component.totalWeight = 4;
+
+    await component.onAdd();
+
+    expect(alertSpy).toHaveBeenCalledWith(
+      'New details cannot be dated before the latest closure.'
+    );
+    expect(component.errorMessage).toBe(
+      'New details cannot be dated before the latest closure.'
+    );
+    alertSpy.mockRestore();
+  });
+
   it('emits a timeout event if saving an invoice takes two minutes', async () => {
     invoiceService.addInvoiceDetail.mockReturnValue(new Promise<void>(() => {}));
     component.currentDate = '2026-03-10';

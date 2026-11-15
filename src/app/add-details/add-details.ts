@@ -15,6 +15,7 @@ import { OperationDeadline, OperationTimeoutError } from '../../service/operatio
 export class AddDetails implements OnInit {
   @Input() account: any;
   @Input() labourChargePerBag = 7;
+  @Input() latestClosureDate: string | null = null;
   @Output() back = new EventEmitter<void>();
   @Output() timedOut = new EventEmitter<void>();
 
@@ -56,6 +57,21 @@ export class AddDetails implements OnInit {
       return;
     }
 
+    if (this.latestClosureDate) {
+      const selectedTimestamp = this.dateTimestamp(date);
+      const closureTimestamp = this.dateTimestamp(this.latestClosureDate);
+      if (closureTimestamp === null) {
+        this.errorMessage = 'The saved closure date is invalid.';
+        window.alert(this.errorMessage);
+        return;
+      }
+      if (selectedTimestamp !== null && selectedTimestamp < closureTimestamp) {
+        this.errorMessage = 'New details cannot be dated before the latest closure.';
+        window.alert(this.errorMessage);
+        return;
+      }
+    }
+
     if (this.currentRate <= 0 || this.totalWeight <= 0) {
       alert('Please enter valid rate and total weight.');
       return;
@@ -80,10 +96,31 @@ export class AddDetails implements OnInit {
         this.timedOut.emit();
         return;
       }
-      this.errorMessage = error instanceof Error ? error.message : String(error);
+      const errorText = error instanceof Error ? error.message : String(error);
+      const closureDateError = 'New details cannot be dated before the latest closure.';
+      this.errorMessage = errorText.includes(closureDateError)
+        ? closureDateError
+        : errorText.replace(/^Error:\s*/, '');
+      window.alert(this.errorMessage);
     } finally {
       this.isSaving = false;
     }
+  }
+
+  private dateTimestamp(value: string): number | null {
+    const parts = value.includes('/')
+      ? value.split('/').reverse()
+      : value.split('-');
+    if (parts.length !== 3 || parts.some((part) => !/^\d+$/.test(part))) return null;
+
+    const [year, month, day] = parts.map(Number);
+    const timestamp = Date.UTC(year, month - 1, day);
+    const date = new Date(timestamp);
+    return date.getUTCFullYear() === year &&
+      date.getUTCMonth() === month - 1 &&
+      date.getUTCDate() === day
+      ? timestamp
+      : null;
   }
 
   private formatDateForStorage(value: string): string | null {

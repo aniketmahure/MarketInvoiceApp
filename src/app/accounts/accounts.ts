@@ -242,6 +242,12 @@ export class Accounts implements OnInit {
     });
   }
 
+  get latestClosureDate(): string | null {
+    return [...this.allInvoices].reverse()
+      .find((record) => record.entryType === 'closure')
+      ?.date ?? null;
+  }
+
   selectClosureYear(year: string) {
     if (this.isBusy) return;
     this.selectedClosureYear = year;

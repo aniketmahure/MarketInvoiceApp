@@ -218,5 +218,6 @@
   *ngIf="currentView === 'add'"
   [account]="selectedAccount"
   [labourChargePerBag]="labourChangesPerBag"
+  [latestClosureDate]="latestClosureDate"
   (timedOut)="handleOperationTimeout()"
   (back)="backToDetails()"></app-add-details>
